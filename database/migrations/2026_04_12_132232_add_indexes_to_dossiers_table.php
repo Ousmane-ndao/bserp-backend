@@ -55,12 +55,23 @@ return new class extends Migration
     private function indexExists(string $table, string $index): bool
     {
         $conn = Schema::getConnection();
-        if ($conn->getDriverName() === 'sqlite') {
-            $rows = $conn->select("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?", [$index]);
+        $driver = $conn->getDriverName();
 
+        if ($driver === 'sqlite') {
+            $rows = $conn->select("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?", [$index]);
             return count($rows) > 0;
         }
 
+        if ($driver === 'pgsql') {
+            // PostgreSQL: utiliser pg_indexes
+            $rows = $conn->select(
+                "SELECT 1 FROM pg_indexes WHERE tablename = ? AND indexname = ?",
+                [$table, $index]
+            );
+            return count($rows) > 0;
+        }
+
+        // MySQL
         $db = $conn->getDatabaseName();
         $rows = $conn->select(
             'SELECT COUNT(1) AS c FROM information_schema.statistics WHERE table_schema = ? AND table_name = ? AND index_name = ?',
