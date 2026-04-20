@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - master
-    paths:
-      - 'backend/**'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 env:
@@ -46,22 +43,19 @@ jobs:
       - name: Cache Composer dependencies
         uses: actions/cache@v3
         with:
-          path: backend/vendor
-          key: ${{ runner.os }}-composer-${{ hashFiles('backend/composer.lock') }}
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        working-directory: backend
         run: composer install --no-interaction --prefer-dist
 
       - name: Setup environment
-        working-directory: backend
         run: |
           cp .env.example .env
           php artisan key:generate
 
       - name: Run migrations
-        working-directory: backend
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -71,7 +65,6 @@ jobs:
         run: php artisan migrate --force
 
       - name: Run tests
-        working-directory: backend
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -100,8 +93,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
-          context: backend
-          file: backend/Dockerfile
+          context: .
+          file: ./Dockerfile
           push: true
           tags: |
             ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
