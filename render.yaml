@@ -2,32 +2,77 @@ services:
   - type: web
     name: bserp-api
     runtime: docker
-    repo: https://github.com/Ousmane-ndao/BSERP.git
+    repo: https://github.com/Ousmane-ndao/bserp-backend.git
     branch: master
-    dockerfile: ./backend/Dockerfile
+    dockerfile: ./Dockerfile
+    buildCommand: docker build -t bserp-api .
+    startCommand: /usr/local/bin/entrypoint.sh
+    
+    # Environment variables
     envVars:
+      - key: APP_NAME
+        value: BSERP
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
         value: false
-      - key: DATABASE_URL
+      - key: APP_URL
+        sync: false
+      - key: LOG_CHANNEL
+        value: stack
+      - key: LOG_LEVEL
+        value: info
+      
+      # Database configuration
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_DATABASE
+        value: bserp
+      - key: DB_HOST
         fromDatabase:
           name: bserp-db
-          property: connectionString
+          property: host
+      - key: DB_USERNAME
+        fromDatabase:
+          name: bserp-db
+          property: username
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: bserp-db
+          property: password
+      
+      # Cache & Session
+      - key: CACHE_STORE
+        value: database
+      - key: SESSION_DRIVER
+        value: database
+      
+    # Health check
     healthCheckPath: /health
     healthCheckInterval: 30
     healthCheckTimeout: 10
-    healthCheckStartupFailureThreshold: 40
+    healthCheckStartupFailureThreshold: 60
+    
+    # Resource limits
     scaling:
       minInstances: 1
       maxInstances: 3
       targetMemoryPercent: 70
       targetCPUPercent: 70
+    
+    # Resource allocation
+    disk:
+      name: bserp-storage
+      mountPath: /app/storage
+      sizeGB: 10
 
 databases:
   - name: bserp-db
-    ipAddress: private
     engine: postgres
-    version: latest
+    version: "16"
     plan: standard
+    ipAddress: private
     postgresMajorVersion: "16"
+    enablePostgisExtension: false
