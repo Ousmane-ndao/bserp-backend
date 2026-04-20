@@ -97,7 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/dossiers/{dossier}', [DossierController::class, 'update'])
         ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial');
     Route::delete('/dossiers/{dossier}', [DossierController::class, 'destroy'])
-        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien');
 
     Route::middleware('role:directrice,responsable_admin,comptable,informaticien')->group(function () {
         Route::get('/payments', [PaymentController::class, 'index']);
