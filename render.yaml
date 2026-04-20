@@ -2,10 +2,9 @@ services:
   - type: web
     name: bserp-api
     runtime: docker
-    repo: https://github.com/Ousmane-ndao/bserp-backend.git
-    branch: master
-    dockerfile: ./Dockerfile
-    buildCommand: docker build -t bserp-api .
+    image:
+      fromRegistry:
+        url: docker.io/${{ secrets.DOCKER_HUB_USERNAME }}/bserp-backend:latest
     startCommand: /usr/local/bin/entrypoint.sh
     
     # Environment variables
