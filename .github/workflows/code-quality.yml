@@ -1,0 +1,61 @@
+name: Code Quality Checks
+
+on:
+  push:
+    branches: [ master, main, develop ]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_pgsql, mbstring, zip, bcmath, gd
+          tools: composer, php-cs-fixer, phpstan
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: backend/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run PHP-CS-Fixer
+        working-directory: backend
+        run: php-cs-fixer fix --dry-run --diff --allow-risky=yes || true
+
+      - name: Run PHPStan
+        working-directory: backend
+        run: phpstan analyse --no-progress --error-format=github || true
+
+      - name: Run Tests
+        working-directory: backend
+        run: php artisan test --no-coverage
+
+      - name: Generate Test Report
+        if: always()
+        working-directory: backend
+        run: |
+          php artisan test --coverage --coverage-text --coverage-html=coverage || true
+
+      - name: Upload Coverage Reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: coverage-reports
+          path: backend/coverage/

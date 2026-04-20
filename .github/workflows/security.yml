@@ -1,0 +1,53 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'backend/**'
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: backend/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Check for Security Issues
+        working-directory: backend
+        run: |
+          composer audit || true
+
+      - name: Run Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          path: backend
+          format: 'All'
+          args: >
+            --enableExperimental
+
+      - name: Upload Dependency Check Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: dependency-check-report
+          path: reports/
