@@ -1,18 +1,17 @@
-name: Build and Deploy to Render
+name: Build, Push to Docker Hub & Deploy to Render
 
 on:
   push:
     branches:
       - master
-      - main
     paths:
       - 'backend/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/backend
+  DOCKER_HUB_REGISTRY: docker.io
+  DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/bserp-backend
 
 jobs:
   build-and-test:
@@ -79,25 +78,62 @@ jobs:
           DB_DATABASE: bserp_test
           DB_USERNAME: postgres
           DB_PASSWORD: password
-        run: php artisan test
+        run: php artisan test --no-coverage
 
-      - name: Build Docker image
+  push-to-docker-hub:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Log in to Container Registry
+      - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: backend
+          file: backend/Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          tags: |
+            ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.DOCKER_IMAGE_NAME }}:latest
+          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_IMAGE_NAME }}:buildcache,mode=max
+
+  trigger-render-deploy:
+    needs: push-to-docker-hub
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Trigger Render deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const webhook_url = '${{ secrets.RENDER_DEPLOY_HOOK }}';
+            if (!webhook_url) {
+              console.warn('⚠️  RENDER_DEPLOY_HOOK secret not configured. Render will pull the latest image on next deployment.');
+              return;
+            }
+            
+            try {
+              const response = await fetch(webhook_url, { method: 'POST' });
+              if (response.ok) {
+                console.log('✅ Render deployment triggered successfully');
+              } else {
+                console.warn(`⚠️  Render webhook returned status: ${response.status}`);
+              }
+            } catch (error) {
+              console.error('❌ Failed to trigger Render deployment:', error);
+            }
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
 
   deploy:
