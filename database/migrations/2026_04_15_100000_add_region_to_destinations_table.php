@@ -9,9 +9,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('destinations', function (Blueprint $table) {
-            $table->string('region', 64)->nullable()->after('name');
-        });
+        // Ajouter la colonne seulement si elle n'existe pas
+        if (!Schema::hasColumn('destinations', 'region')) {
+            Schema::table('destinations', function (Blueprint $table) {
+                $table->string('region', 64)->nullable()->after('name');
+            });
+        }
 
         if (Schema::hasTable('destinations')) {
             $map = [
