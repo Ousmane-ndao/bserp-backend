@@ -79,6 +79,10 @@ COPY docker/default.conf /etc/nginx/conf.d/default.conf
 # Copy Supervisor config
 COPY docker/supervisord.conf /etc/supervisord.conf
 
+# Copy entrypoint script
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Set working directory
 WORKDIR /app
 
@@ -90,6 +94,9 @@ RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions sto
     chmod -R 755 storage bootstrap/cache && \
     chown -R nobody:nobody /app
 
+# Install pg_isready tool
+RUN apk add --no-cache postgresql-client
+
 # Expose port
 EXPOSE 80
 
@@ -97,5 +104,6 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost/health || exit 1
 
-# Start supervisor
+# Run entrypoint and start supervisor
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
