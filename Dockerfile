@@ -33,13 +33,13 @@ WORKDIR /app
 # Copy composer files
 COPY composer.json composer.lock ./
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+# Install PHP dependencies WITHOUT scripts (artisan doesn't exist yet)
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
 
-# Copy application code
+# Copy application code (now artisan is available)
 COPY . .
 
-# Generate optimized autoloader
+# Generate optimized autoloader with scripts
 RUN composer dump-autoload --optimize
 
 # Stage 2: Runtime
