@@ -55,7 +55,15 @@ RUN apk add --no-cache \
     libjpeg-turbo \
     freetype \
     nginx \
-    supervisor
+    supervisor \
+    # Temporary dev packages for PHP extension installation
+    libpq-dev \
+    oniguruma-dev \
+    libzip-dev \
+    zlib-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
@@ -66,7 +74,9 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
     zip \
     bcmath \
     gd \
-    opcache
+    opcache && \
+    # Remove dev packages to reduce image size
+    apk del libpq-dev oniguruma-dev libzip-dev zlib-dev libpng-dev libjpeg-turbo-dev freetype-dev
 
 # Copy PHP-FPM config
 COPY docker/php.ini /usr/local/etc/php/php.ini
