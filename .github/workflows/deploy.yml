@@ -108,50 +108,24 @@ jobs:
     
     steps:
       - name: Trigger Render deployment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const webhook_url = '${{ secrets.RENDER_DEPLOY_HOOK }}';
-            if (!webhook_url) {
-              console.warn('⚠️  RENDER_DEPLOY_HOOK secret not configured. Render will pull the latest image on next deployment.');
-              return;
-            }
-            
-            try {
-              const response = await fetch(webhook_url, { method: 'POST' });
-              if (response.ok) {
-                console.log('✅ Render deployment triggered successfully');
-              } else {
-                console.warn(`⚠️  Render webhook returned status: ${response.status}`);
-              }
-            } catch (error) {
-              console.error('❌ Failed to trigger Render deployment:', error);
-            }
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
-
-  deploy:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to Render
         run: |
-          curl -X POST "https://api.render.com/deploy/srv-${{ secrets.RENDER_SERVICE_ID }}?key=${{ secrets.RENDER_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"clearCache":"full"}'
-
-      - name: Notify deployment
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '✅ Deployment to Render completed successfully! 🚀\nImage: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
-            })
+          WEBHOOK_URL="${{ secrets.RENDER_DEPLOY_HOOK }}"
+          
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "⚠️  RENDER_DEPLOY_HOOK not configured"
+            echo "Render will auto-deploy within 5 minutes when it detects the new image"
+            exit 0
+          fi
+          
+          echo "🚀 Triggering Render deployment webhook..."
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$WEBHOOK_URL")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "204" ]; then
+            echo "✅ Render deployment triggered successfully (HTTP $HTTP_CODE)"
+          else
+            echo "⚠️  Render webhook returned HTTP $HTTP_CODE"
+            echo "Response: $BODY"
+          fi
