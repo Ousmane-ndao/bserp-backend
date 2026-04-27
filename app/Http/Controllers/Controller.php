@@ -33,6 +33,25 @@ namespace App\Http\Controllers;
  */
 abstract class Controller
 {
-    //
+    /**
+     * @OA\Get(
+     *      path="/api/ping",
+     *      operationId="ping",
+     *      tags={"System"},
+     *      summary="Check system status",
+     *      description="Returns system status",
+     *      @OA\Response(
+     *          response=200,
+     *          description="Successful operation",
+     *          @OA\JsonContent(
+     *              @OA\Property(property="status", type="string", example="ok")
+     *          )
+     *      )
+     * )
+     */
+    public function ping()
+    {
+        return response()->json(['status' => 'ok']);
+    }
 }
 
