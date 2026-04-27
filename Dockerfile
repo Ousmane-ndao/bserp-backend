@@ -100,9 +100,9 @@ WORKDIR /app
 COPY --from=builder /app .
 
 # Create necessary directories
-RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views && \
-    chmod -R 755 storage bootstrap/cache && \
-    chown -R nobody:nobody /app
+RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views /var/log/supervisor && \
+    chmod -R 755 storage bootstrap/cache /var/log/supervisor && \
+    chown -R nobody:nobody /app /var/log/supervisor
 
 # Install pg_isready tool
 RUN apk add --no-cache postgresql-client
