@@ -54,7 +54,7 @@ jobs:
           php artisan test --coverage --coverage-text --coverage-html=coverage || true
 
       - name: Upload Coverage Reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: coverage-reports

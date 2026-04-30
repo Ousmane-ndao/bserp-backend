@@ -3,19 +3,19 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
+use ReflectionMethod;
+use ReflectionNamedType;
 
 class GenerateSwagger extends Command
 {
     protected $signature = 'app:generate-swagger';
-    protected $description = 'Génère automatiquement le fichier public/swagger.json à partir des routes Laravel';
+    protected $description = 'Génère automatiquement le fichier public/swagger.json avec détection des RequestBody';
 
     public function handle()
     {
         $this->info('Génération de public/swagger.json...');
 
-        // On récupère les routes via l'artisan interne pour être sûr d'avoir le format JSON
         Artisan::call('route:list', ['--json' => true]);
         $routes = json_decode(Artisan::output(), true);
 
@@ -45,7 +45,6 @@ class GenerateSwagger extends Command
         ];
 
         foreach ($routes as $route) {
-            // On ne garde que les routes API
             if (!str_starts_with($route['uri'], 'api/')) {
                 continue;
             }
@@ -57,12 +56,10 @@ class GenerateSwagger extends Command
                 if ($method === 'HEAD') continue;
                 
                 $lowerMethod = strtolower($method);
-                
                 if (!isset($openapi['paths'][$uri])) {
                     $openapi['paths'][$uri] = [];
                 }
 
-                // Détermination du tag selon le nom du contrôleur
                 $tag = 'Général';
                 $action = $route['action'];
                 if (str_contains($action, 'AuthController')) $tag = 'Authentification';
@@ -75,6 +72,8 @@ class GenerateSwagger extends Command
                 elseif (str_contains($action, 'DashboardController')) $tag = 'Tableau de bord';
                 elseif (str_contains($action, 'StudentAccountController')) $tag = 'Scolarité';
                 elseif (str_contains($action, 'StudentProgressController')) $tag = 'Suivi Pédagogique';
+                elseif (str_contains($action, 'ExpenseController')) $tag = 'Dépenses';
+                elseif (str_contains($action, 'DocumentController')) $tag = 'Documents';
 
                 $operation = [
                     'tags' => [$tag],
@@ -82,16 +81,14 @@ class GenerateSwagger extends Command
                     'responses' => [
                         '200' => ['description' => 'Succès'],
                         '401' => ['description' => 'Non authentifié'],
-                        '403' => ['description' => 'Accès refusé'],
+                        '422' => ['description' => 'Erreur de validation'],
                     ],
                 ];
 
-                // Sécurité si middleware sanctum présent
                 if (str_contains(json_encode($route['middleware']), 'sanctum')) {
                     $operation['security'] = [['bearerAuth' => []]];
                 }
 
-                // Paramètres de l'URL
                 if (preg_match_all('/\{([^\}]+)\}/', $uri, $matches)) {
                     $operation['parameters'] = [];
                     foreach ($matches[1] as $param) {
@@ -104,6 +101,13 @@ class GenerateSwagger extends Command
                     }
                 }
 
+                if (in_array($lowerMethod, ['post', 'put', 'patch'])) {
+                    $requestBody = $this->getRequestBodyFromAction($action);
+                    if ($requestBody) {
+                        $operation['requestBody'] = $requestBody;
+                    }
+                }
+
                 $openapi['paths'][$uri][$lowerMethod] = $operation;
             }
         }
@@ -112,5 +116,107 @@ class GenerateSwagger extends Command
         file_put_contents(public_path('swagger.json'), $json);
 
         $this->info('Fichier public/swagger.json généré avec succès !');
+    }
+
+    private function getRequestBodyFromAction($action)
+    {
+        if ($action === 'Closure') return null;
+        if (!str_contains($action, '@')) return null;
+
+        [$controller, $method] = explode('@', $action);
+
+        try {
+            if (!class_exists($controller)) return null;
+            $reflection = new ReflectionMethod($controller, $method);
+            foreach ($reflection->getParameters() as $parameter) {
+                $type = $parameter->getType();
+                if ($type instanceof ReflectionNamedType && !$type->isBuiltin()) {
+                    $className = $type->getName();
+                    if (class_exists($className) && (is_subclass_of($className, 'Illuminate\Foundation\Http\FormRequest') || $className === 'Illuminate\Foundation\Http\FormRequest')) {
+                        return $this->generateRequestBodyFromFormRequest($className);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // Log error for debugging if needed: $this->error($e->getMessage());
+        }
+
+        if (str_contains($action, 'AuthController@login')) {
+            return $this->manualRequestBody(['email', 'password']);
+        }
+        if (str_contains($action, 'AuthController@register')) {
+            return $this->manualRequestBody(['name', 'email', 'password', 'password_confirmation', 'role', 'telephone']);
+        }
+
+        return null;
+    }
+
+    private function generateRequestBodyFromFormRequest($className)
+    {
+        try {
+            $request = new $className();
+            if (method_exists($request, 'rules')) {
+                // On simule un environnement minimal pour rules()
+                $rules = $request->rules();
+                $properties = [];
+                $required = [];
+
+                foreach ($rules as $field => $rule) {
+                    // Nettoyage du nom du champ (ex: items.*.id -> items)
+                    $cleanField = explode('.', $field)[0];
+                    if (isset($properties[$cleanField])) continue;
+
+                    $properties[$cleanField] = ['type' => 'string'];
+                    
+                    $ruleStr = is_array($rule) ? implode('|', array_map(fn($r) => is_string($r) ? $r : '', $rule)) : (string)$rule;
+                    
+                    if (str_contains($ruleStr, 'required')) $required[] = $cleanField;
+                    if (str_contains($ruleStr, 'integer') || str_contains($ruleStr, 'numeric')) $properties[$cleanField]['type'] = 'integer';
+                    if (str_contains($ruleStr, 'boolean')) $properties[$cleanField]['type'] = 'boolean';
+                    if (str_contains($ruleStr, 'email')) $properties[$cleanField]['format'] = 'email';
+                    if (str_contains($ruleStr, 'array')) {
+                        $properties[$cleanField]['type'] = 'array';
+                        $properties[$cleanField]['items'] = ['type' => 'string'];
+                    }
+                }
+
+                return [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => $properties,
+                                'required' => array_values(array_unique($required)),
+                            ]
+                        ]
+                    ]
+                ];
+            }
+        } catch (\Exception $e) {}
+
+        return null;
+    }
+
+    private function manualRequestBody($fields)
+    {
+        $properties = [];
+        foreach ($fields as $field) {
+            $properties[$field] = ['type' => 'string'];
+            if ($field === 'email') $properties[$field]['format'] = 'email';
+            if ($field === 'password' || $field === 'password_confirmation') $properties[$field]['format'] = 'password';
+        }
+        return [
+            'required' => true,
+            'content' => [
+                'application/json' => [
+                    'schema' => [
+                        'type' => 'object',
+                        'properties' => $properties,
+                        'required' => $fields,
+                    ]
+                ]
+            ]
+        ];
     }
 }
