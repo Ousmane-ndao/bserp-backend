@@ -75,7 +75,7 @@ class DashboardController extends Controller
         $dossiersTrendMois = [];
         $revenusTrendByKey = [];
         $revenusTrendRows = Payment::query()
-            ->selectRaw("DATE_FORMAT(date_paiement, '%Y-%m') as ym, SUM(montant) as total")
+            ->selectRaw("TO_CHAR(date_paiement, 'YYYY-MM') as ym, SUM(montant) as total")
             ->whereNotNull('date_paiement')
             ->where('date_paiement', '>=', now()->subMonths(6)->startOfMonth())
             ->groupBy('ym')
