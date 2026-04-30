@@ -52,7 +52,7 @@ fi
 
 # Generate API documentation
 echo "Generating API documentation..."
-php /app/artisan l5-swagger:generate || echo "⚠ Warning: Failed to generate Swagger docs (non-critical)"
+php /app/artisan app:generate-swagger || echo "⚠ Warning: Failed to generate Swagger docs (non-critical)"
 
 # Set permissions
 echo "Setting permissions..."
