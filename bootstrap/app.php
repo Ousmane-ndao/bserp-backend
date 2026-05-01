@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
         $middleware->alias([
+            'auth' => \App\Http\Middleware\Authenticate::class,
             'role' => EnsureRole::class,
         ]);
     })
