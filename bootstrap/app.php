@@ -31,4 +31,23 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return null;
         });
+
+        // Safety net: ensure API error responses still carry CORS headers.
+        $exceptions->respond(function ($response) {
+            $request = request();
+            if (! $request || ! $request->is('api/*')) {
+                return $response;
+            }
+
+            $origin = (string) $request->headers->get('Origin', '');
+            $allowedOrigins = (array) config('cors.allowed_origins', []);
+            $isAllowedOrigin = in_array($origin, $allowedOrigins, true);
+
+            if ($origin !== '' && $isAllowedOrigin && ! $response->headers->has('Access-Control-Allow-Origin')) {
+                $response->headers->set('Access-Control-Allow-Origin', $origin);
+                $response->headers->set('Vary', 'Origin', false);
+            }
+
+            return $response;
+        });
     })->create();
