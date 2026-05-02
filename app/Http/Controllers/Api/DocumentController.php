@@ -11,8 +11,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class DocumentController extends Controller
 {
@@ -53,23 +55,43 @@ class DocumentController extends Controller
 
     public function store(StoreDocumentRequest $request): JsonResponse
     {
-        $dossier = Dossier::query()->with('client')->findOrFail($request->validated('dossier_id'));
-        $file = $request->file('file');
-        $storedPath = $file->store('documents', 'local');
+        try {
+            $dossier = Dossier::query()->with('client')->findOrFail($request->validated('dossier_id'));
+            $file = $request->file('file');
+            $storedPath = $file->store('documents', 'local');
 
-        $document = Document::query()->create([
-            'client_id' => $dossier->client_id,
-            'dossier_id' => $dossier->id,
-            'type_document' => $request->input('type_document', 'CNI ou Passeport'),
-            'file_path' => $storedPath,
-            'original_filename' => $file->getClientOriginalName(),
-            'size_bytes' => $file->getSize(),
-            'mime' => $file->getClientMimeType(),
-        ]);
+            $document = Document::query()->create([
+                'client_id' => $dossier->client_id,
+                'dossier_id' => $dossier->id,
+                'type_document' => $request->input('type_document', 'CNI ou Passeport'),
+                'file_path' => $storedPath,
+                'original_filename' => $file->getClientOriginalName(),
+                'size_bytes' => $file->getSize(),
+                'mime' => $file->getClientMimeType(),
+            ]);
 
-        return (new DocumentResource($document->load('client')))
-            ->response()
-            ->setStatusCode(201);
+            return (new DocumentResource($document->load('client')))
+                ->response()
+                ->setStatusCode(201);
+        } catch (Throwable $e) {
+            $requestId = (string) $request->header('X-Request-Id', $request->header('x-request-id', 'n/a'));
+
+            Log::error('Document upload failed', [
+                'request_id' => $requestId,
+                'user_id' => optional($request->user())->id,
+                'dossier_id' => $request->input('dossier_id'),
+                'type_document' => $request->input('type_document'),
+                'original_filename' => optional($request->file('file'))->getClientOriginalName(),
+                'filesize' => optional($request->file('file'))->getSize(),
+                'mime' => optional($request->file('file'))->getClientMimeType(),
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => "Echec de l'upload du document.",
+                'request_id' => $requestId,
+            ], 500);
+        }
     }
 
     public function show(Document $document): DocumentResource
