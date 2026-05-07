@@ -40,8 +40,8 @@ class Dossier extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => Cache::forget('dashboard_stats'));
-        static::deleted(fn () => Cache::forget('dashboard_stats'));
+        static::saved(fn () => Cache::forget('dashboard_full_stats'));
+        static::deleted(fn () => Cache::forget('dashboard_full_stats'));
     }
 
     public function client(): BelongsTo

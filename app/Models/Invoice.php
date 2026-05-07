@@ -42,6 +42,9 @@ class Invoice extends Model
                 $invoice->numero = self::nextNumero();
             }
         });
+
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats'));
     }
 
     public static function nextNumero(): string

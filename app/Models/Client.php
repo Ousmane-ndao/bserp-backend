@@ -30,6 +30,12 @@ class Client extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats'));
+    }
+
     public function destination(): BelongsTo
     {
         return $this->belongsTo(Destination::class);

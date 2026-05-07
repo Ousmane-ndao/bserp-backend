@@ -3,62 +3,52 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Expense;
 use App\Models\Invoice;
-use App\Models\Payment;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class AccountingController extends Controller
 {
     public function summary(): JsonResponse
     {
-        $currency = config('currency.code');
+        $currency = config('erp.currency_code', 'XOF');
 
         $pendingInvoices = Invoice::query()
             ->where('statut', Invoice::STATUT_ENVOYEE)
             ->count();
 
-        $paymentsByMethod = Payment::query()
+        $paymentsByMethod = DB::table('payments')
             ->selectRaw('methode as method, SUM(montant) as total')
             ->groupBy('methode')
             ->orderByDesc('total')
-            ->get()
-            ->map(fn ($row) => [
-                'method' => $row->method,
-                'total' => (float) $row->total,
-            ]);
+            ->get();
 
-        $payments = Payment::query()->get(['montant', 'date_paiement']);
-        $expenses = Expense::query()->get(['montant', 'date_depense']);
+        $revenues = DB::table('payments')
+            ->selectRaw("TO_CHAR(date_paiement, 'YYYY-MM') as ym, SUM(montant) as total")
+            ->whereNotNull('date_paiement')
+            ->groupBy('ym')
+            ->pluck('total', 'ym')
+            ->all();
 
-        $monthSet = [];
-        foreach ($payments as $p) {
-            if ($p->date_paiement) {
-                $monthSet[$p->date_paiement->format('Y-m')] = true;
-            }
-        }
-        foreach ($expenses as $e) {
-            if ($e->date_depense) {
-                $monthSet[$e->date_depense->format('Y-m')] = true;
-            }
-        }
+        $expenses = DB::table('expenses')
+            ->selectRaw("TO_CHAR(date_depense, 'YYYY-MM') as ym, SUM(montant) as total")
+            ->whereNotNull('date_depense')
+            ->groupBy('ym')
+            ->pluck('total', 'ym')
+            ->all();
 
-        ksort($monthSet);
+        $allMonths = array_unique(array_merge(array_keys($revenues), array_keys($expenses)));
+        sort($allMonths);
+
         $monthly = [];
-        foreach (array_keys($monthSet) as $ym) {
+        foreach ($allMonths as $ym) {
             $carbon = Carbon::createFromFormat('Y-m', $ym)->locale('fr');
-            $revenue = (float) $payments
-                ->filter(fn ($p) => $p->date_paiement && $p->date_paiement->format('Y-m') === $ym)
-                ->sum('montant');
-            $expenseTotal = (float) $expenses
-                ->filter(fn ($e) => $e->date_depense && $e->date_depense->format('Y-m') === $ym)
-                ->sum('montant');
             $monthly[] = [
                 'month' => $ym,
                 'label' => ucfirst($carbon->translatedFormat('M Y')),
-                'revenue' => $revenue,
-                'expenses' => $expenseTotal,
+                'revenue' => (float) ($revenues[$ym] ?? 0),
+                'expenses' => (float) ($expenses[$ym] ?? 0),
             ];
         }
 

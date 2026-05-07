@@ -23,6 +23,12 @@ class Payment extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats'));
+    }
+
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
