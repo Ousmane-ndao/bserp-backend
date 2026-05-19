@@ -9,6 +9,7 @@ use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
@@ -18,10 +19,27 @@ class DashboardController extends Controller
 
     public function __invoke(): JsonResponse
     {
-        // On essaye de récupérer tout le dashboard du cache
-        return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
-            return response()->json($this->getStats());
-        });
+        try {
+            // Récupère et met en cache les données brutes (array) — ne pas mettre un JsonResponse en cache
+            $stats = Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
+                return $this->getStats();
+            });
+
+            // Si le cache contient une valeur corrompue (par ex. objet sérialisé invalide), on la purge et on régénère
+            if (!is_array($stats)) {
+                Log::warning('Dashboard cache contained non-array value; clearing cache and regenerating', ['key' => self::CACHE_KEY, 'type' => gettype($stats)]);
+                Cache::forget(self::CACHE_KEY);
+                $stats = $this->getStats();
+                Cache::put(self::CACHE_KEY, $stats, self::CACHE_TTL);
+            }
+
+            return response()->json($stats);
+        } catch (\Throwable $e) {
+            // Log détaillé pour diagnostic
+            Log::error('DashboardController error: ' . $e->getMessage(), ['exception' => $e]);
+            $message = config('app.debug') ? $e->getMessage() : 'Erreur interne dashboard';
+            return response()->json(['error' => $message], 500);
+        }
     }
 
     private function getStats(): array

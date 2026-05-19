@@ -56,3 +56,41 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Operational checks and quick fixes for BSERP
+
+Use the following commands locally or on your staging server to ensure the application env is healthy before deployment.
+
+- Clear caches and regenerate app key (local/staging only):
+
+```bash
+php artisan cache:clear
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+# If APP_KEY is empty (only run in local/staging):
+php artisan key:generate
+```
+
+- Verify the dashboard cache or purge a corrupt entry:
+
+```bash
+php artisan cache:forget dashboard_full_stats
+# or clear full cache
+php artisan cache:clear
+```
+
+- Ensure environment variables for production (Vercel/Render):
+	- `VITE_API_URL` -> set to your backend public URL (ex: `https://api.example.com`)
+	- `APP_KEY` -> must be present on the backend host
+	- Add your frontend host to `SANCTUM_STATEFUL_DOMAINS` for Sanctum sessions
+
+- Quick test endpoints:
+
+```bash
+curl -i https://your-backend.example.com/api/dashboard
+```
+
+Script: `scripts/check_env.php`
+- Run with `php scripts/check_env.php` to get a quick report of important env vars and recommendations.
+

@@ -44,6 +44,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/dashboard', DashboardController::class);
 
+    // (debug route removed) typo-capture route cleaned up
+
     Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil')->group(function () {
         Route::get('/destinations', fn () => response()->json(
             Destination::query()
