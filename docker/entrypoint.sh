@@ -54,6 +54,10 @@ fi
 echo "Generating API documentation..."
 php /app/artisan app:generate-swagger || echo "⚠ Warning: Failed to generate Swagger docs (non-critical)"
 
+# Ensure document upload directory exists (persistent disk mount: /app/storage)
+echo "Ensuring storage directories..."
+mkdir -p /app/storage/app/private/documents /app/storage/app/public || true
+
 # Set permissions
 echo "Setting permissions..."
 chmod -R 755 /app/storage /app/bootstrap/cache || true

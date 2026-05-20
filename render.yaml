@@ -49,6 +49,10 @@ services:
         value: database
       - key: SESSION_DRIVER
         value: database
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: FILESYSTEM_LOCAL_ROOT
+        value: /app/storage/app/private
       
     # Health check
     healthCheckPath: /health
