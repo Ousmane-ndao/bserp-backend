@@ -96,6 +96,11 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Set working directory
 WORKDIR /app
 
+# Stockage documents (disque Render monté sur /app/storage)
+ENV FILESYSTEM_DISK=local
+ENV FILESYSTEM_LOCAL_ROOT=/app/storage/app/private
+ENV CORS_ALLOWED_ORIGINS=https://bserp.vercel.app,http://localhost:8080,http://127.0.0.1:8080
+
 # Copy from builder
 COPY --from=builder /app .
 
