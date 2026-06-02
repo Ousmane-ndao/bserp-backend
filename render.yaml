@@ -54,7 +54,7 @@ services:
       - key: FILESYSTEM_LOCAL_ROOT
         value: /app/storage/app/private
       - key: CORS_ALLOWED_ORIGINS
-        value: https://bserp.vercel.app,http://localhost:8080,http://127.0.0.1:8080
+        value: https://bserp.vercel.app,http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173
       
     # Health check
     healthCheckPath: /health
