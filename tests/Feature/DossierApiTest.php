@@ -87,7 +87,7 @@ class DossierApiTest extends TestCase
         ]);
     }
 
-    public function test_accueil_cannot_update_dossier(): void
+    public function test_accueil_can_update_dossier(): void
     {
         $user = $this->userForRole('accueil');
         $dossier = $this->createDossier();
@@ -98,7 +98,8 @@ class DossierApiTest extends TestCase
             'statut' => 'Terminé',
         ]);
 
-        $response->assertStatus(403);
+        $response->assertOk()
+            ->assertJsonPath('data.statut', 'Terminé');
     }
 
     public function test_commercial_cannot_delete_dossier(): void

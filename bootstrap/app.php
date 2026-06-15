@@ -33,7 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
             $allowed = array_filter(array_map('trim', explode(',', (string) env(
                 'CORS_ALLOWED_ORIGINS',
-                'https://bserp.vercel.app,http://localhost:8080,http://127.0.0.1:8080',
+                'https://bserp.vercel.app,http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173',
             ))));
             $ok = in_array($origin, $allowed, true)
                 || (bool) preg_match('#^https://[a-z0-9-]+\.vercel\.app$#', $origin);

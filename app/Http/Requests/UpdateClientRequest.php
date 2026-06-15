@@ -12,6 +12,14 @@ class UpdateClientRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'date_naissance' => $this->input('date_naissance') ?: null,
+            'date_ouverture' => $this->input('date_ouverture') ?: null,
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */

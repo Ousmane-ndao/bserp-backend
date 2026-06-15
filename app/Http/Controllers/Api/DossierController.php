@@ -26,7 +26,7 @@ class DossierController extends Controller
         $data = $rows->map(fn ($r) => [
             'id' => (string) $r->id,
             'reference' => $r->reference,
-            'client' => trim(($r->prenom ?? '').' '.($r->nom ?? '')),
+            'client' => trim(($r->prenom ?? '') . ' ' . ($r->nom ?? '')),
         ])->values()->all();
 
         return response()->json(['data' => $data]);
@@ -38,6 +38,7 @@ class DossierController extends Controller
 
         if ($request->boolean('cursor_mode')) {
             $cursor = $request->query('cursor');
+
             $paginator = DossierListQuery::base($request)
                 ->cursorPaginate($perPage, ['*'], 'cursor', is_string($cursor) ? $cursor : null);
 
@@ -61,19 +62,36 @@ class DossierController extends Controller
     public function store(StoreDossierRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $year = (int) date('Y');
-        $seq = Dossier::query()->whereYear('created_at', $year)->count() + 1;
-        $reference = sprintf('D-%d-%03d', $year, $seq);
+
+        $year = date('Y');
+
+        // Récupérer la dernière référence de l'année en cours
+        $lastDossier = Dossier::query()
+            ->where('reference', 'like', "D-{$year}-%")
+            ->orderByDesc('id')
+            ->first();
+
+        if ($lastDossier) {
+            preg_match('/D-\d{4}-(\d+)/', $lastDossier->reference, $matches);
+            $seq = ((int) ($matches[1] ?? 0)) + 1;
+        } else {
+            $seq = 1;
+        }
+
+        // Générer une nouvelle référence unique
+        $reference = sprintf('D-%s-%03d', $year, $seq);
 
         $dossier = Dossier::query()->create([
-            'client_id' => $data['client_id'],
-            'reference' => $reference,
-            'type' => $data['type'] ?? null,
-            'statut' => $data['statut'] ?? 'En cours',
-            'date_ouverture' => $data['date_ouverture'] ?? now()->toDateString(),
+            'client_id'       => $data['client_id'],
+            'reference'       => $reference,
+            'type'            => $data['type'] ?? null,
+            'statut'          => $data['statut'] ?? 'En cours',
+            'date_ouverture'  => $data['date_ouverture'] ?? now()->toDateString(),
         ]);
 
-        return (new DossierResource($dossier->load(['client.destination', 'documents'])))
+        return (new DossierResource(
+            $dossier->load(['client.destination', 'documents'])
+        ))
             ->response()
             ->setStatusCode(201);
     }
@@ -83,7 +101,14 @@ class DossierController extends Controller
         return new DossierResource(
             $dossier->load([
                 'client.destination',
-                'documents' => fn ($q) => $q->select(['id', 'dossier_id', 'original_filename', 'file_path', 'type_document', 'created_at']),
+                'documents' => fn ($q) => $q->select([
+                    'id',
+                    'dossier_id',
+                    'original_filename',
+                    'file_path',
+                    'type_document',
+                    'created_at',
+                ]),
             ])
         );
     }
@@ -96,7 +121,14 @@ class DossierController extends Controller
         return new DossierResource(
             $dossier->fresh()->load([
                 'client.destination',
-                'documents' => fn ($q) => $q->select(['id', 'dossier_id', 'original_filename', 'file_path', 'type_document', 'created_at']),
+                'documents' => fn ($q) => $q->select([
+                    'id',
+                    'dossier_id',
+                    'original_filename',
+                    'file_path',
+                    'type_document',
+                    'created_at',
+                ]),
             ])
         );
     }
@@ -105,6 +137,8 @@ class DossierController extends Controller
     {
         $dossier->delete();
 
-        return response()->json(['message' => 'Dossier supprimé.']);
+        return response()->json([
+            'message' => 'Dossier supprimé.',
+        ]);
     }
 }

@@ -60,7 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/student-progress/{client}', [StudentProgressController::class, 'show']);
     });
 
-    Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial')->group(function () {
+    Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil')->group(function () {
         Route::post('/clients', [ClientController::class, 'store']);
         Route::put('/clients/{client}', [ClientController::class, 'update']);
     });
@@ -95,9 +95,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])
         ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
     Route::post('/dossiers', [DossierController::class, 'store'])
-        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial');
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
     Route::put('/dossiers/{dossier}', [DossierController::class, 'update'])
-        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial');
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
     Route::delete('/dossiers/{dossier}', [DossierController::class, 'destroy'])
         ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien');
 

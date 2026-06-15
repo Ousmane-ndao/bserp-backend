@@ -71,7 +71,10 @@ final class DossierListQuery
     public static function base(Request $request): Builder
     {
         $query = self::filtered($request)
-            ->with(['client.destination'])
+            ->with([
+                'client:id,prenom,nom,email,telephone,destination_id',
+                'client.destination:id,name',
+            ])
             ->withCount('documents');
 
         self::applySort($query, $request);

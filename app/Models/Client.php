@@ -22,13 +22,10 @@ class Client extends Model
         'statut',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'date_naissance' => 'date',
-            'date_ouverture' => 'date',
-        ];
-    }
+    protected $casts = [
+        'date_naissance' => 'date',
+        'date_ouverture' => 'date',
+    ];
 
     protected static function booted(): void
     {

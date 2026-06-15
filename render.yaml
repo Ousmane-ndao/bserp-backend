@@ -8,7 +8,7 @@ services:
         url: docker.io/ousmane-ndao/bserp-backend:latest
         auth: private
     startCommand: /usr/local/bin/entrypoint.sh
-    
+
     # Environment variables
     envVars:
       - key: APP_NAME
@@ -23,7 +23,7 @@ services:
         value: stack
       - key: LOG_LEVEL
         value: info
-      
+
       # Database configuration
       - key: DB_CONNECTION
         value: pgsql
@@ -43,7 +43,7 @@ services:
         fromDatabase:
           name: bserp-db
           property: password
-      
+
       # Cache & Session
       - key: CACHE_STORE
         value: database
@@ -53,22 +53,26 @@ services:
         value: local
       - key: FILESYSTEM_LOCAL_ROOT
         value: /app/storage/app/private
+      - key: APP_URL
+        value: https://bserp-backend-latest.onrender.com
+      - key: SANCTUM_STATEFUL_DOMAINS
+        value: bserp.vercel.app,localhost:3000,localhost:5173,localhost:8000
       - key: CORS_ALLOWED_ORIGINS
         value: https://bserp.vercel.app,http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173
-      
+
     # Health check
     healthCheckPath: /health
     healthCheckInterval: 30
     healthCheckTimeout: 10
     healthCheckStartupFailureThreshold: 60
-    
+
     # Resource limits
     scaling:
       minInstances: 1
       maxInstances: 3
       targetMemoryPercent: 70
       targetCPUPercent: 70
-    
+
     # Resource allocation
     disk:
       name: bserp-storage
