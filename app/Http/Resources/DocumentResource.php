@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Document;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +19,7 @@ class DocumentResource extends JsonResource
             'id' => (string) $this->id,
             'nom' => $this->original_filename ?? basename($this->file_path),
             'type' => $this->type_document,
+            'statut' => Document::hasStatutColumn() ? ($this->statut ?? 'En attente') : 'En attente',
             'client' => $client ? trim($client->prenom.' '.$client->nom) : null,
             'clientId' => (string) $this->client_id,
             'dossierId' => $this->dossier_id ? (string) $this->dossier_id : null,

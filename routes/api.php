@@ -9,7 +9,7 @@ use App\Http\Controllers\Api\DossierController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ExportController;
-use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\MyDossierController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\StudentAccountController;
@@ -77,7 +77,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
 
     Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil')->group(function () {
+        Route::get('/my-dossier', [MyDossierController::class, 'show']);
         Route::get('/documents', [DocumentController::class, 'index']);
+        Route::get('/documents/clients-summary', [DocumentController::class, 'clientsSummary']);
         Route::get('/documents/{document}/download', [DocumentController::class, 'download']);
         Route::get('/documents/{document}', [DocumentController::class, 'show']);
         Route::get('/dossiers/options', [DossierController::class, 'options']);
@@ -92,6 +94,10 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::post('/documents', [DocumentController::class, 'store'])
         ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien');
+    Route::put('/documents/{document}', [DocumentController::class, 'update'])
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
+    Route::patch('/documents/{document}', [DocumentController::class, 'update'])
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])
         ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
     Route::post('/dossiers', [DossierController::class, 'store'])

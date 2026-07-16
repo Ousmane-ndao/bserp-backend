@@ -12,12 +12,6 @@ $allowedOrigins = $origins
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Cross-Origin Resource Sharing (CORS) Configuration
-    |--------------------------------------------------------------------------
-    */
-
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
@@ -26,6 +20,7 @@ return [
 
     'allowed_origins_patterns' => [
         '#^https://[a-z0-9-]+\.vercel\.app$#',
+        '#^https://bserp[a-z0-9-]*\.vercel\.app$#',
     ],
 
     'allowed_headers' => ['*'],
