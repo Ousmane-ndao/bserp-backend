@@ -99,6 +99,8 @@ WORKDIR /app
 # Stockage documents (disque Render monté sur /app/storage)
 ENV FILESYSTEM_DISK=local
 ENV FILESYSTEM_LOCAL_ROOT=/app/storage/app/private
+ENV LOG_CHANNEL=stderr
+ENV LOG_STACK=stderr
 ENV CORS_ALLOWED_ORIGINS=https://bserp.vercel.app,http://localhost:8080,http://127.0.0.1:8080
 
 # Copy from builder

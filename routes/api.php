@@ -20,10 +20,18 @@ use Illuminate\Support\Facades\Route;
 
 // Health check endpoint (not protected)
 Route::get('/health', function () {
+    $storageRoot = config('filesystems.disks.local.root');
+    $documentsDir = $storageRoot.'/documents';
+    $storageWritable = is_dir($storageRoot) && is_writable($storageRoot);
+
     return response()->json([
         'status' => 'ok',
         'timestamp' => now(),
-        'uptime' => php_uname(),
+        'storage' => [
+            'root' => $storageRoot,
+            'documents_dir_exists' => is_dir($documentsDir),
+            'root_writable' => $storageWritable,
+        ],
     ]);
 });
 

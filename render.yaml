@@ -20,7 +20,9 @@ services:
       - key: APP_URL
         sync: false
       - key: LOG_CHANNEL
-        value: stack
+        value: stderr
+      - key: LOG_STACK
+        value: stderr
       - key: LOG_LEVEL
         value: info
 
@@ -54,7 +56,7 @@ services:
       - key: FILESYSTEM_LOCAL_ROOT
         value: /app/storage/app/private
       - key: APP_URL
-        value: https://bserp-backend-latest.onrender.com
+        value: https://bserp-backend-5vc2.onrender.com
       - key: SANCTUM_STATEFUL_DOMAINS
         value: bserp.vercel.app,localhost:3000,localhost:5173,localhost:8000
       - key: CORS_ALLOWED_ORIGINS

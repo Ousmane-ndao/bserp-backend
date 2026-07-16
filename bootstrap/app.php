@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->use([
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
+        $middleware->api(prepend: [
+            \App\Http\Middleware\LogAllRequests::class,
+        ]);
         $middleware->alias([
             'role' => EnsureRole::class,
         ]);
