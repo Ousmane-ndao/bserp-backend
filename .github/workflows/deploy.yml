@@ -55,6 +55,19 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 30); do
+            if pg_isready -h localhost -p 5432 -U postgres >/dev/null 2>&1; then
+              echo "PostgreSQL is ready"
+              exit 0
+            fi
+            echo "Waiting for PostgreSQL ($i/30)..."
+            sleep 2
+          done
+          echo "PostgreSQL did not become ready in time"
+          exit 1
+
       - name: Run migrations
         env:
           DB_HOST: localhost
