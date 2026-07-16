@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\StudentAccountController;
 use App\Http\Controllers\Api\StudentProgressController;
+use App\Http\Controllers\Api\InvoiceController;
 use App\Models\Destination;
 use Illuminate\Support\Facades\Route;
 
@@ -47,7 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // (debug route removed) typo-capture route cleaned up
 
     Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil')->group(function () {
-        Route::get('/destinations', fn () => response()->json(
+        Route::get('/destinations', fn() => response()->json(
             Destination::query()
                 ->orderBy('region')
                 ->orderBy('name')
