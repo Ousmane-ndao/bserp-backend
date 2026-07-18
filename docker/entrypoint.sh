@@ -33,6 +33,14 @@ php /app/artisan migrate --force --quiet || {
 }
 echo "✓ Migrations completed"
 
+# Ensure roles, employees and login accounts exist (idempotent).
+echo "Synchronizing database seeders..."
+php /app/artisan db:seed --force --quiet || {
+    echo "ERROR: Database seed failed"
+    exit 1
+}
+echo "✓ Database seeders completed"
+
 # Cache configuration (production)
 if [ "$APP_ENV" = "production" ]; then
     echo "Caching configuration for production..."
