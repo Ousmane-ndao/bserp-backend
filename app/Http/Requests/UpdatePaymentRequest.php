@@ -18,13 +18,16 @@ class UpdatePaymentRequest extends FormRequest
     {
         return [
             'client_id' => ['sometimes', 'required', 'exists:clients,id'],
-            'amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'required_without:montant'],
-            'montant' => ['sometimes', 'nullable', 'numeric', 'min:0', 'required_without:amount'],
+            'dossier_id' => ['sometimes', 'nullable', 'exists:dossiers,id'],
+            'amount' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'required_without:montant'],
+            'montant' => ['sometimes', 'nullable', 'numeric', 'min:0.01', 'required_without:amount'],
             'method' => ['sometimes', 'nullable', 'string', 'max:255'],
             'methode' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'commentaire' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'paid_at' => ['sometimes', 'nullable', 'date'],
             'date_paiement' => ['sometimes', 'nullable', 'date'],
             'currency' => ['sometimes', 'nullable', 'string', 'size:3'],
+            'allow_overpayment' => ['sometimes', 'nullable', 'boolean'],
         ];
     }
 }

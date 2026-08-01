@@ -9,9 +9,12 @@ class Payment extends Model
 {
     protected $fillable = [
         'client_id',
+        'dossier_id',
         'montant',
         'currency',
         'methode',
+        'avance_numero',
+        'commentaire',
         'date_paiement',
     ];
 
@@ -32,5 +35,15 @@ class Payment extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function dossier(): BelongsTo
+    {
+        return $this->belongsTo(Dossier::class);
+    }
+
+    public function auditLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PaymentAuditLog::class);
     }
 }

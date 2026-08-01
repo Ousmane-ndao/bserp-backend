@@ -3,9 +3,8 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
-class StorePaymentRequest extends FormRequest
+class StoreClientPaymentRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -18,7 +17,6 @@ class StorePaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'client_id' => ['required', 'exists:clients,id'],
             'dossier_id' => ['nullable', 'exists:dossiers,id'],
             'amount' => ['nullable', 'numeric', 'min:0.01', 'required_without:montant'],
             'montant' => ['nullable', 'numeric', 'min:0.01', 'required_without:amount'],
@@ -27,7 +25,6 @@ class StorePaymentRequest extends FormRequest
             'commentaire' => ['nullable', 'string', 'max:2000'],
             'paid_at' => ['nullable', 'date'],
             'date_paiement' => ['nullable', 'date'],
-            'currency' => ['nullable', 'string', 'size:3'],
             'allow_overpayment' => ['nullable', 'boolean'],
         ];
     }

@@ -19,10 +19,14 @@ class RoleMapper
         return self::KEY_TO_DB[$key] ?? self::KEY_TO_DB['accueil'];
     }
 
-    public static function toFrontendKey(?string $dbName): string
+    public static function toFrontendKey(?string $dbName): ?string
     {
+        if ($dbName === null || $dbName === '') {
+            return null;
+        }
+
         $flip = array_flip(self::KEY_TO_DB);
 
-        return $dbName && isset($flip[$dbName]) ? $flip[$dbName] : 'accueil';
+        return $flip[$dbName] ?? null;
     }
 }

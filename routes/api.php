@@ -4,7 +4,9 @@ use App\Http\Controllers\Api\AccountingController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DestinationController;
 use App\Http\Controllers\Api\DocumentController;
+use App\Http\Controllers\Api\DossierPaymentController;
 use App\Http\Controllers\Api\DossierController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\ExpenseController;
@@ -56,11 +58,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // (debug route removed) typo-capture route cleaned up
 
     Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil')->group(function () {
-        Route::get('/destinations', fn() => response()->json(
+        Route::get('/destinations', fn () => response()->json(
             Destination::query()
                 ->orderBy('region')
                 ->orderBy('name')
-                ->get(['id', 'name', 'region', 'type_compte'])
+                ->get(['id', 'name', 'region', 'type_compte', 'montant_total'])
+                ->map(fn (Destination $d) => [
+                    'id' => $d->id,
+                    'name' => $d->name,
+                    'region' => $d->region,
+                    'type_compte' => $d->type_compte,
+                    'montantTotal' => (string) $d->montant_total,
+                ])
         ));
         Route::get('/clients', [ClientController::class, 'index']);
         Route::get('/clients/options', [ClientController::class, 'options']);
@@ -117,6 +126,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien');
 
     Route::middleware('role:directrice,responsable_admin,comptable,informaticien')->group(function () {
+        Route::get('/clients/{client}/dossiers/{dossier}/payments', [DossierPaymentController::class, 'index']);
+        Route::post('/clients/{client}/dossiers/{dossier}/payments', [DossierPaymentController::class, 'store']);
+        Route::get('/clients/{client}/dossiers/{dossier}/payment-summary', [DossierPaymentController::class, 'summary']);
+
         Route::get('/payments', [PaymentController::class, 'index']);
         Route::post('/payments', [PaymentController::class, 'store']);
         Route::get('/payments/{payment}', [PaymentController::class, 'show']);
@@ -125,7 +138,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/accounting/summary', [AccountingController::class, 'summary']);
 
-        Route::get('/exports/payments.csv', [ExportController::class, 'paymentsCsv']);
+        Route::get('/exports/payments', [ExportController::class, 'paymentsIndex']);
+        Route::get('/exports/payments/csv', [ExportController::class, 'paymentsExportCsv']);
+        Route::get('/exports/payments/pdf', [ExportController::class, 'paymentsExportPdf']);
+        Route::get('/exports/payments/excel', [ExportController::class, 'paymentsExportExcel']);
+        Route::get('/exports/payments.csv', [ExportController::class, 'paymentsExportCsv']);
         Route::get('/exports/expenses.csv', [ExportController::class, 'expensesCsv']);
         Route::get('/exports/accounting.xlsx', [ExportController::class, 'accountingXlsx']);
         Route::get('/exports/accounting.pdf', [ExportController::class, 'accountingPdf']);
@@ -138,6 +155,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::middleware('role:directrice,responsable_admin,informaticien')->group(function () {
+        Route::get('/destinations/manage', [DestinationController::class, 'index']);
+        Route::put('/destinations/{destination}', [DestinationController::class, 'update']);
         Route::get('/employees', [EmployeeController::class, 'index']);
         Route::post('/employees', [EmployeeController::class, 'store']);
         Route::put('/employees/{employee}', [EmployeeController::class, 'update']);

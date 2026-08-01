@@ -7,7 +7,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Destination extends Model
 {
-    protected $fillable = ['name', 'region', 'type_compte'];
+    protected $fillable = ['name', 'region', 'type_compte', 'montant_total'];
+
+    protected function casts(): array
+    {
+        return [
+            'montant_total' => 'decimal:2',
+        ];
+    }
 
     public function clients(): HasMany
     {

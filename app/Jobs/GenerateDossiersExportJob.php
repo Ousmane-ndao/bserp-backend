@@ -5,12 +5,12 @@ namespace App\Jobs;
 use App\Models\CompanySetting;
 use App\Models\DossierExport;
 use App\Support\DossierListQuery;
+use App\Support\DocumentsDisk;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Throwable;
@@ -18,6 +18,7 @@ use Throwable;
 class GenerateDossiersExportJob implements ShouldQueue
 {
     use Queueable;
+    use DocumentsDisk;
 
     public function __construct(public int $exportId) {}
 
@@ -102,7 +103,7 @@ class GenerateDossiersExportJob implements ShouldQueue
 
         $path = 'exports/dossiers/dossiers-'.now()->format('Y-m-d-His').'-'.$this->exportId.'.csv';
         rewind($tmp);
-        Storage::disk('local')->put($path, stream_get_contents($tmp) ?: '');
+        $this->documentsDisk()->put($path, stream_get_contents($tmp) ?: '');
         fclose($tmp);
 
         return $path;
@@ -150,7 +151,7 @@ class GenerateDossiersExportJob implements ShouldQueue
         $writer->save($tmpPath);
 
         $path = 'exports/dossiers/dossiers-'.now()->format('Y-m-d-His').'-'.$this->exportId.'.xlsx';
-        Storage::disk('local')->put($path, file_get_contents($tmpPath) ?: '');
+        $this->documentsDisk()->put($path, file_get_contents($tmpPath) ?: '');
         @unlink($tmpPath);
 
         return $path;
@@ -182,7 +183,7 @@ class GenerateDossiersExportJob implements ShouldQueue
         ])->setPaper('a4', 'landscape');
 
         $path = 'exports/dossiers/dossiers-'.now()->format('Y-m-d-His').'-'.$this->exportId.'.pdf';
-        Storage::disk('local')->put($path, $pdf->output());
+        $this->documentsDisk()->put($path, $pdf->output());
 
         return $path;
     }

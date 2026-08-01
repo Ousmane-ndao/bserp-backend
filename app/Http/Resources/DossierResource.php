@@ -32,6 +32,8 @@ class DossierResource extends JsonResource
             'type' => $this->type,
             'statut' => $this->statut,
             'date' => $this->date_ouverture?->format('Y-m-d') ?? $this->created_at?->format('Y-m-d'),
+            'montantTotal' => $this->montant_total !== null ? (string) $this->montant_total : null,
+            'soldeRestant' => $this->solde_restant !== null ? (string) $this->solde_restant : null,
             'documentCount' => $docCount,
             'documents' => DocumentSummaryResource::collection($this->whenLoaded('documents')),
         ];

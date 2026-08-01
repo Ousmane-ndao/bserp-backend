@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreDossierRequest;
 use App\Http\Requests\UpdateDossierRequest;
 use App\Http\Resources\DossierResource;
+use App\Models\Client;
 use App\Models\Dossier;
+use App\Services\PaymentService;
 use App\Support\DossierListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +16,10 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class DossierController extends Controller
 {
+    public function __construct(
+        private readonly PaymentService $paymentService,
+    ) {}
+
     public function options(Request $request): JsonResponse
     {
         $rows = DossierListQuery::filtered($request)
@@ -81,13 +87,20 @@ class DossierController extends Controller
         // Générer une nouvelle référence unique
         $reference = sprintf('D-%s-%03d', $year, $seq);
 
+        $client = Client::query()->with('destination')->findOrFail($data['client_id']);
+        $montantTotal = (float) ($client->destination?->montant_total ?? PaymentService::DEFAULT_MONTANT_TOTAL);
+
         $dossier = Dossier::query()->create([
             'client_id'       => $data['client_id'],
             'reference'       => $reference,
             'type'            => $data['type'] ?? null,
             'statut'          => $data['statut'] ?? 'En cours',
             'date_ouverture'  => $data['date_ouverture'] ?? now()->toDateString(),
+            'montant_total'   => $montantTotal,
+            'solde_restant'   => $montantTotal,
         ]);
+
+        $this->paymentService->initializeDossierAmounts($dossier, $montantTotal);
 
         return (new DossierResource(
             $dossier->load(['client.destination', 'documents'])

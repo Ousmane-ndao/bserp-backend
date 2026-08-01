@@ -18,7 +18,7 @@ class EnsureRole
         }
 
         $roleKey = RoleMapper::toFrontendKey($user->employee->role->name);
-        if (! in_array($roleKey, $allowed, true)) {
+        if ($roleKey === null || ! in_array($roleKey, $allowed, true)) {
             return new JsonResponse(['message' => 'Permission insuffisante.'], 403);
         }
 

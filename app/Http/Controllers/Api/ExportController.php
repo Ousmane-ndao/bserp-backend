@@ -8,11 +8,12 @@ use App\Models\DossierExport;
 use App\Models\Expense;
 use App\Models\Payment;
 use App\Jobs\GenerateDossiersExportJob;
+use App\Services\PaymentService;
 use App\Support\DossierListQuery;
+use App\Support\DocumentsDisk;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -21,6 +22,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExportController extends Controller
 {
+    use DocumentsDisk;
+    use DocumentsDisk;
+    public function __construct(
+        private readonly PaymentService $paymentService,
+    ) {}
+
     private const DOSSIER_FILTER_KEYS = [
         'search',
         'statut',
@@ -34,27 +41,93 @@ class ExportController extends Controller
 
     public function paymentsCsv(): StreamedResponse
     {
+        return $this->paymentsExportCsv(request());
+    }
+
+    public function paymentsIndex(Request $request): JsonResponse
+    {
+        $filters = $this->paymentExportFilters($request);
+
+        $payments = $this->paymentService
+            ->paymentsForExport(
+                $filters['destination_id'],
+                $filters['date_from'],
+                $filters['date_to'],
+                $filters['statut'],
+                $filters['client_id'],
+                $filters['dossier_id'],
+            )
+            ->limit(5000)
+            ->get();
+
+        $summaryRows = $this->paymentService->buildDossierSummaryRows(
+            $filters['destination_id'],
+            $filters['date_from'],
+            $filters['date_to'],
+            $filters['statut'],
+            $filters['client_id'],
+        );
+
+        return response()->json([
+            'data' => [
+                'payments' => $payments->map(fn (Payment $payment) => [
+                    'id' => (string) $payment->id,
+                    'clientId' => (string) $payment->client_id,
+                    'clientName' => trim(($payment->client?->prenom ?? '').' '.($payment->client?->nom ?? '')),
+                    'dossierId' => $payment->dossier_id ? (string) $payment->dossier_id : null,
+                    'dossierReference' => $payment->dossier?->reference,
+                    'destination' => $payment->client?->destination?->name,
+                    'avanceNumero' => $payment->avance_numero,
+                    'amount' => (string) $payment->montant,
+                    'currency' => $payment->currency ?? config('currency.code'),
+                    'method' => $payment->methode,
+                    'commentaire' => $payment->commentaire,
+                    'paidAt' => $payment->date_paiement?->format('Y-m-d'),
+                ])->values(),
+                'summary' => $summaryRows,
+            ],
+            'meta' => [
+                'filters' => $filters,
+                'currency' => config('currency.code'),
+            ],
+        ]);
+    }
+
+    public function paymentsExportCsv(Request $request): StreamedResponse
+    {
+        $filters = $this->paymentExportFilters($request);
         $filename = 'paiements-'.now()->format('Y-m-d').'.csv';
 
-        return response()->streamDownload(function (): void {
+        return response()->streamDownload(function () use ($filters): void {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['id', 'client', 'montant', 'devise', 'methode', 'date_paiement'], ';');
+            fputcsv($out, [
+                'id', 'client', 'dossier', 'destination', 'acompte', 'montant', 'devise', 'methode', 'date_paiement', 'commentaire',
+            ], ';');
 
-            Payment::query()
-                ->with('client')
-                ->orderByDesc('id')
+            $this->paymentService
+                ->paymentsForExport(
+                    $filters['destination_id'],
+                    $filters['date_from'],
+                    $filters['date_to'],
+                    $filters['statut'],
+                    $filters['client_id'],
+                    $filters['dossier_id'],
+                )
                 ->chunk(200, function ($chunk) use ($out): void {
-                    foreach ($chunk as $p) {
-                        $client = $p->client;
-                        $name = $client ? trim($client->prenom.' '.$client->nom) : '';
+                    foreach ($chunk as $payment) {
+                        $client = $payment->client;
                         fputcsv($out, [
-                            $p->id,
-                            $name,
-                            $p->montant,
-                            $p->currency ?? config('currency.code'),
-                            $p->methode,
-                            $p->date_paiement?->format('Y-m-d'),
+                            $payment->id,
+                            $client ? trim($client->prenom.' '.$client->nom) : '',
+                            $payment->dossier?->reference ?? '',
+                            $client?->destination?->name ?? '',
+                            $payment->avance_numero ?? '',
+                            $payment->montant,
+                            $payment->currency ?? config('currency.code'),
+                            $payment->methode,
+                            $payment->date_paiement?->format('d/m/Y'),
+                            $payment->commentaire ?? '',
                         ], ';');
                     }
                 });
@@ -63,6 +136,142 @@ class ExportController extends Controller
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    public function paymentsExportPdf(Request $request): Response
+    {
+        $filters = $this->paymentExportFilters($request);
+        $company = CompanySetting::query()->first();
+
+        $payments = $this->paymentService
+            ->paymentsForExport(
+                $filters['destination_id'],
+                $filters['date_from'],
+                $filters['date_to'],
+                $filters['statut'],
+                $filters['client_id'],
+                $filters['dossier_id'],
+            )
+            ->limit(2000)
+            ->get();
+
+        $summaryRows = $this->paymentService->buildDossierSummaryRows(
+            $filters['destination_id'],
+            $filters['date_from'],
+            $filters['date_to'],
+            $filters['statut'],
+            $filters['client_id'],
+        );
+
+        $pdf = Pdf::loadView('exports.payments-report', [
+            'company' => $company,
+            'payments' => $payments,
+            'summaryRows' => $summaryRows,
+            'filters' => $filters,
+            'currencyLabel' => config('currency.label'),
+            'generatedAt' => now()->locale('fr')->isoFormat('LLL'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('rapport-paiements-'.now()->format('Y-m-d').'.pdf');
+    }
+
+    public function paymentsExportExcel(Request $request): StreamedResponse
+    {
+        $filters = $this->paymentExportFilters($request);
+        $spreadsheet = new Spreadsheet;
+
+        $acomptesSheet = $spreadsheet->getActiveSheet();
+        $acomptesSheet->setTitle('Acomptes');
+        $acomptesSheet->fromArray([
+            ['ID', 'Client', 'Dossier', 'Destination', 'Acompte', 'Montant', 'Devise', 'Méthode', 'Date', 'Commentaire'],
+        ]);
+
+        $row = 2;
+        $this->paymentService
+            ->paymentsForExport(
+                $filters['destination_id'],
+                $filters['date_from'],
+                $filters['date_to'],
+                $filters['statut'],
+                $filters['client_id'],
+                $filters['dossier_id'],
+            )
+            ->chunk(200, function ($chunk) use ($acomptesSheet, &$row): void {
+                foreach ($chunk as $payment) {
+                    $client = $payment->client;
+                    $acomptesSheet->fromArray([[
+                        $payment->id,
+                        $client ? trim($client->prenom.' '.$client->nom) : '',
+                        $payment->dossier?->reference ?? '',
+                        $client?->destination?->name ?? '',
+                        $payment->avance_numero ?? '',
+                        $payment->montant,
+                        $payment->currency ?? config('currency.code'),
+                        $payment->methode,
+                        $payment->date_paiement?->format('d/m/Y'),
+                        $payment->commentaire ?? '',
+                    ]], null, 'A'.$row);
+                    $row++;
+                }
+            });
+
+        $summarySheet = $spreadsheet->createSheet();
+        $summarySheet->setTitle('Synthèse');
+        $summarySheet->fromArray([
+            ['Dossier', 'Client', 'Destination', 'Montant total', 'Total payé', 'Solde restant', 'Statut'],
+        ]);
+
+        $summaryRow = 2;
+        foreach ($this->paymentService->buildDossierSummaryRows(
+            $filters['destination_id'],
+            $filters['date_from'],
+            $filters['date_to'],
+            $filters['statut'],
+            $filters['client_id'],
+        ) as $summary) {
+            $summarySheet->fromArray([[
+                $summary['dossier_reference'],
+                $summary['client_name'],
+                $summary['destination'],
+                $summary['montant_total'],
+                $summary['total_paye'],
+                $summary['solde_restant'],
+                $summary['statut'],
+            ]], null, 'A'.$summaryRow);
+            $summaryRow++;
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+        $filename = 'paiements-'.now()->format('Y-m-d').'.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet): void {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * @return array{
+     *   destination_id: ?int,
+     *   date_from: ?string,
+     *   date_to: ?string,
+     *   statut: ?string,
+     *   client_id: ?int,
+     *   dossier_id: ?int
+     * }
+     */
+    private function paymentExportFilters(Request $request): array
+    {
+        return [
+            'destination_id' => $request->filled('destination_id') ? $request->integer('destination_id') : null,
+            'date_from' => $request->filled('date_from') ? $request->string('date_from')->toString() : null,
+            'date_to' => $request->filled('date_to') ? $request->string('date_to')->toString() : null,
+            'statut' => $request->filled('statut') ? $request->string('statut')->toString() : null,
+            'client_id' => $request->filled('client_id') ? $request->integer('client_id') : null,
+            'dossier_id' => $request->filled('dossier_id') ? $request->integer('dossier_id') : null,
+        ];
     }
 
     public function expensesCsv(): StreamedResponse
@@ -335,11 +544,12 @@ class ExportController extends Controller
             abort(409, 'Export non prêt.');
         }
 
-        if (! Storage::disk('local')->exists($dossierExport->file_path)) {
+        $disk = $this->documentsDisk();
+        if (! $disk->exists($dossierExport->file_path)) {
             abort(404, 'Fichier export introuvable.');
         }
 
-        return Storage::disk('local')->download(
+        return $disk->download(
             $dossierExport->file_path,
             basename($dossierExport->file_path)
         );
