@@ -23,7 +23,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ExportController extends Controller
 {
     use DocumentsDisk;
-    use DocumentsDisk;
+
     public function __construct(
         private readonly PaymentService $paymentService,
     ) {}

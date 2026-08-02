@@ -98,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/my-dossier', [MyDossierController::class, 'show']);
         Route::get('/documents', [DocumentController::class, 'index']);
         Route::get('/documents/clients-summary', [DocumentController::class, 'clientsSummary']);
+        Route::get('/documents/{document}/signed-url', [DocumentController::class, 'signedUrl']);
         Route::get('/documents/{document}/download', [DocumentController::class, 'download']);
         Route::get('/documents/{document}', [DocumentController::class, 'show']);
         Route::get('/dossiers/options', [DossierController::class, 'options']);
