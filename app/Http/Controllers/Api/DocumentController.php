@@ -212,24 +212,28 @@ class DocumentController extends Controller
     public function download(Document $document): StreamedResponse|Response|JsonResponse
     {
         $diskName = $this->documentsDiskName();
-        $disk = $this->documentsDisk();
+
+        // 🛡️ CORRECTION POUR L'IDE : Cette annotation dit à VS Code que c'est un FilesystemAdapter
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk($diskName);
 
         if (! $disk->exists($document->file_path)) {
             return response()->json(['message' => 'Fichier introuvable.'], 404);
         }
 
-        // ✅ CORRECTION ICI : Utilisation de Storage::disk() pour satisfaire l'IDE
-        return Storage::disk($diskName)->download(
+        return $disk->download(
             $document->file_path,
             $document->original_filename ?? basename($document->file_path)
         );
     }
-
     public function signedUrl(Request $request, Document $document): JsonResponse
     {
         $minutes = min(max($request->integer('minutes', 30), 1), 1440);
         $diskName = $this->documentsDiskName();
-        $disk = $this->documentsDisk();
+
+        // 🛡️ CORRECTION POUR L'IDE : Annotation pour dire à VS Code que c'est un FilesystemAdapter
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk($diskName);
 
         if (! $disk->exists($document->file_path)) {
             return response()->json(['message' => 'Fichier introuvable.'], 404);
@@ -243,8 +247,8 @@ class DocumentController extends Controller
         }
 
         try {
-            // ✅ CORRECTION APPLIQUÉE ICI : Utilisation de Storage::disk() pour l'IDE
-            $url = Storage::disk($diskName)->temporaryUrl(
+            // ✅ L'appel fonctionne parfaitement, même si l'IDE ne le voit pas
+            $url = $disk->temporaryUrl(
                 $document->file_path,
                 now()->addMinutes($minutes)
             );
@@ -267,7 +271,6 @@ class DocumentController extends Controller
             return response()->json(['message' => 'Impossible de générer une URL signée.'], 503);
         }
     }
-
     public function destroy(Document $document): JsonResponse
     {
         $disk = $this->documentsDisk();
