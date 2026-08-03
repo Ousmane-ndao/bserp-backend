@@ -167,7 +167,14 @@ class DocumentController extends Controller
                 'user_id' => optional($request->user())->id,
             ]);
 
-            return response()->json(['message' => 'Upload impossible.'], 500);
+            // 🔥 CORRECTION ULTIME : Renvoyer l'erreur exacte dans le navigateur
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'upload.',
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
         }
     }
 
@@ -226,6 +233,7 @@ class DocumentController extends Controller
             $document->original_filename ?? basename($document->file_path)
         );
     }
+
     public function signedUrl(Request $request, Document $document): JsonResponse
     {
         $minutes = min(max($request->integer('minutes', 30), 1), 1440);
@@ -271,6 +279,7 @@ class DocumentController extends Controller
             return response()->json(['message' => 'Impossible de générer une URL signée.'], 503);
         }
     }
+
     public function destroy(Document $document): JsonResponse
     {
         $disk = $this->documentsDisk();
