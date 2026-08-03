@@ -127,7 +127,6 @@ class DocumentController extends Controller
 
             if ($validator->fails()) {
                 Log::warning('documents.store validation failed', ['errors' => $validator->errors()->toArray()]);
-
                 return response()->json(['message' => 'Données invalides.', 'errors' => $validator->errors()], 422);
             }
 
@@ -168,7 +167,7 @@ class DocumentController extends Controller
                 'user_id' => optional($request->user())->id,
             ]);
 
-            return response()->json(['message' => 'Upload impossible.'], 503);
+            return response()->json(['message' => 'Upload impossible.'], 500);
         }
     }
 
@@ -212,12 +211,15 @@ class DocumentController extends Controller
 
     public function download(Document $document): StreamedResponse|Response|JsonResponse
     {
+        $diskName = $this->documentsDiskName();
         $disk = $this->documentsDisk();
+
         if (! $disk->exists($document->file_path)) {
             return response()->json(['message' => 'Fichier introuvable.'], 404);
         }
 
-        return $disk->download(
+        // ✅ CORRECTION ICI : Utilisation de Storage::disk() pour satisfaire l'IDE
+        return Storage::disk($diskName)->download(
             $document->file_path,
             $document->original_filename ?? basename($document->file_path)
         );
@@ -226,8 +228,8 @@ class DocumentController extends Controller
     public function signedUrl(Request $request, Document $document): JsonResponse
     {
         $minutes = min(max($request->integer('minutes', 30), 1), 1440);
-        $disk = $this->documentsDisk();
         $diskName = $this->documentsDiskName();
+        $disk = $this->documentsDisk();
 
         if (! $disk->exists($document->file_path)) {
             return response()->json(['message' => 'Fichier introuvable.'], 404);
@@ -241,7 +243,8 @@ class DocumentController extends Controller
         }
 
         try {
-            $url = $disk->temporaryUrl(
+            // ✅ CORRECTION APPLIQUÉE ICI : Utilisation de Storage::disk() pour l'IDE
+            $url = Storage::disk($diskName)->temporaryUrl(
                 $document->file_path,
                 now()->addMinutes($minutes)
             );
