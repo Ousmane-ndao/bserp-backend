@@ -14,11 +14,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        // 🔥 Désactive le middleware CORS par défaut pour éviter les conflits
         $middleware->use([
-            \Illuminate\Http\Middleware\HandleCors::class,
+            // \Illuminate\Http\Middleware\HandleCors::class,   // ← COMMENTÉ
         ]);
         $middleware->api(prepend: [
-            \App\Http\Middleware\Cors::class,   // <-- AJOUT ICI
+            \App\Http\Middleware\Cors::class,   // ← Ton middleware personnalisé en tête
             \App\Http\Middleware\LogAllRequests::class,
         ]);
         $middleware->alias([
@@ -28,7 +29,6 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return null;
             }
-
             return route('login');
         });
     })
@@ -52,7 +52,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 $response->headers->set('Access-Control-Allow-Origin', $origin);
                 $response->headers->set('Vary', 'Origin');
             }
-
             return $response;
         });
     })->create();
