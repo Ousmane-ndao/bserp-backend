@@ -1,5 +1,5 @@
 <?php
-
+error_log('=== REQUÊTE REÇUE ===');
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
