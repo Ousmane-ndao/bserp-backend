@@ -14,17 +14,23 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
-        // 🔥 Désactive le middleware CORS par défaut pour éviter les conflits
+
+        // ✅ MIDDLEWARE GLOBAL (exécuté pour toutes les requêtes, avant tout)
         $middleware->use([
-            // \Illuminate\Http\Middleware\HandleCors::class,   // ← COMMENTÉ
+            \App\Http\Middleware\Cors::class,   // ← En global pour garantir les en-têtes CORS
+            // \Illuminate\Http\Middleware\HandleCors::class,   // ← Désactivé (conflit)
         ]);
+
+        // ✅ MIDDLEWARE SPÉCIFIQUE AU GROUPE API
         $middleware->api(prepend: [
-            \App\Http\Middleware\Cors::class,   // ← Ton middleware personnalisé en tête
+            // \App\Http\Middleware\Cors::class,   // ← Retiré du groupe api (déjà global)
             \App\Http\Middleware\LogAllRequests::class,
         ]);
+
         $middleware->alias([
             'role' => EnsureRole::class,
         ]);
+
         $middleware->redirectGuestsTo(function (\Illuminate\Http\Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return null;

@@ -9,40 +9,106 @@ use Illuminate\Support\Facades\Log;
 
 function guessDocumentType($filename)
 {
-    $name = strtolower($filename);
-    $name = iconv('UTF-8', 'ASCII//TRANSLIT', $name); // enlève les accents
+    // Normaliser : enlever les accents, mettre en minuscules
+    $name = mb_convert_encoding($filename, 'UTF-8', 'UTF-8');
+    $name = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name);
+    $name = strtolower($name);
 
-    if (strpos($name, 'cni') !== false || strpos($name, 'passeport') !== false || strpos($name, 'cin') !== false) {
+    // --- RÈGLES DE CLASSIFICATION (ordre d'importance) ---
+
+    // 1. CNI / Passeport / CIN
+    if (str_contains($name, 'cni') || str_contains($name, 'passeport') || str_contains($name, 'cin')) {
         return 'CNI ou Passeport';
     }
-    if (strpos($name, 'photo') !== false) {
+
+    // 2. Photo
+    if (str_contains($name, 'photo') || str_contains($name, 'image') || str_contains($name, 'jpeg') || str_contains($name, 'jpg') || str_contains($name, 'png')) {
         return 'Photo d’identité';
     }
-    if (strpos($name, 'bulletin') !== false || strpos($name, 'notes') !== false || strpos($name, 'releve') !== false) {
+
+    // 3. Diplôme Bac / Relevé de notes / Bulletin
+    if (str_contains($name, 'diplome') || str_contains($name, 'bac') || str_contains($name, 'releve') || str_contains($name, 'bulletin') || str_contains($name, 'notes') || str_contains($name, 'semestre') || str_contains($name, 'trimestre') || str_contains($name, 'fusion') || str_contains($name, 'premiere') || str_contains($name, 'seconde') || str_contains($name, 'terminale') || str_contains($name, 'annuel') || str_contains($name, 'bts') || str_contains($name, 'licence') || str_contains($name, 'master') || str_contains($name, 'bt')) {
         return 'Bulletins de notes';
     }
-    if (strpos($name, 'diplome') !== false || strpos($name, 'bac') !== false) {
-        return 'Diplôme Bac';
+
+    // 4. Certificat / Attestation / Inscription
+    if (str_contains($name, 'certificat') || str_contains($name, 'attestation') || str_contains($name, 'inscription') || str_contains($name, 'scolarite')) {
+        return 'Certificat d’inscription';
     }
-    if (strpos($name, 'motivation') !== false) {
-        return 'Lettre de motivation';
+
+    // 5. Extrait de naissance
+    if (str_contains($name, 'extrait') || str_contains($name, 'naissance')) {
+        return 'Extrait de naissance';
     }
-    if (strpos($name, 'attestation') !== false || strpos($name, 'inscription') !== false) {
-        return 'Attestation';
-    }
-    if (strpos($name, 'certificat') !== false) {
-        return 'Certificat de scolarité';
-    }
-    if (strpos($name, 'convocation') !== false) {
+
+    // 6. Convocation / Entretien
+    if (str_contains($name, 'convocation') || str_contains($name, 'entretien')) {
         return 'Convocation Entretien';
     }
-    if (strpos($name, 'dossier') !== false) {
+
+    // 7. Lettre de motivation
+    if (str_contains($name, 'motivation') || str_contains($name, 'lettre')) {
+        return 'Lettre de motivation';
+    }
+
+    // 8. Reçu / Récépissé / Quittance
+    if (str_contains($name, 'recu') || str_contains($name, 'recepisse') || str_contains($name, 'quittance')) {
+        return 'Reçu';
+    }
+
+    // 9. Contrat / Engagement
+    if (str_contains($name, 'contrat') || str_contains($name, 'engagement')) {
+        return 'Contrat';
+    }
+
+    // 10. Formation / Stage
+    if (str_contains($name, 'formation') || str_contains($name, 'stage')) {
+        return 'Formation';
+    }
+
+    // 11. Travail / Parcoursup
+    if (str_contains($name, 'travail') || str_contains($name, 'parcoursup')) {
+        return 'Travail';
+    }
+
+    // 12. Dossier / Pièce identité
+    if (str_contains($name, 'dossier') || str_contains($name, 'identite')) {
         return 'Dossier';
     }
-    if (strpos($name, 'identite') !== false) {
-        return 'Pièce d\'identité';
+
+    // --- NOUVELLES RÈGLES POUR LES 74 RESTANTS ---
+    if (str_contains($name, 'rv demande visa')) {
+        return 'Convocation Entretien';
     }
-    // Ajoutez d'autres règles selon vos besoins
+    if (str_contains($name, 'capt formation')) {
+        return 'Photo d’identité';
+    }
+    if (str_contains($name, 'tableau d\'honneur')) {
+        return 'Bulletins de notes';
+    }
+    if (str_contains($name, 'camscanner')) {
+        return 'Autre'; // ou 'Scan' si vous voulez créer une catégorie
+    }
+    if (str_contains($name, 'carte consulaire')) {
+        return 'Pièce d’identité';
+    }
+    if (str_contains($name, 'conduite des stages')) {
+        return 'Formation';
+    }
+    if (str_contains($name, 'planning')) {
+        return 'Formation';
+    }
+    if (str_contains($name, 'materiel scolaire')) {
+        return 'Formation';
+    }
+    if (str_contains($name, 'capture')) {
+        return 'Photo d’identité';
+    }
+    if (str_contains($name, 'extrait')) {
+        return 'Extrait de naissance'; // déjà présent, mais on le garde
+    }
+
+    // Si aucun mot‑clé n'est trouvé
     return 'Autre';
 }
 
@@ -59,15 +125,20 @@ if ($total === 0) {
 }
 
 foreach ($docs as $doc) {
-    $newType = guessDocumentType($doc->original_filename);
-    if ($newType !== 'Autre') {
-        $doc->type_document = $newType;
-        $doc->save();
-        $updated++;
-        echo "✅ Document #{$doc->id} ({$doc->original_filename}) → $newType\n";
-    } else {
+    try {
+        $newType = guessDocumentType($doc->original_filename);
+        if ($newType !== 'Autre') {
+            $doc->type_document = $newType;
+            $doc->save();
+            $updated++;
+            echo "✅ Document #{$doc->id} ({$doc->original_filename}) → $newType\n";
+        } else {
+            $stillOther++;
+            echo "❌ Document #{$doc->id} ({$doc->original_filename}) reste en 'Autre' (non reconnu)\n";
+        }
+    } catch (\Exception $e) {
+        echo "⚠️ Erreur sur ID {$doc->id} ({$doc->original_filename}) : " . $e->getMessage() . "\n";
         $stillOther++;
-        echo "❌ Document #{$doc->id} ({$doc->original_filename}) reste en 'Autre' (non reconnu)\n";
     }
 }
 
