@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
         $middleware->api(prepend: [
+            \App\Http\Middleware\Cors::class,   // <-- AJOUT ICI
             \App\Http\Middleware\LogAllRequests::class,
         ]);
         $middleware->alias([
@@ -32,7 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Garde les en-têtes CORS sur les réponses API même en cas d’erreur (évite « blocked by CORS »).
+        // Garde les en-têtes CORS sur les réponses API même en cas d’erreur
         $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response, \Throwable $e, \Illuminate\Http\Request $request) {
             if (!$request->is('api/*')) {
                 return $response;
