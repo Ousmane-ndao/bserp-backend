@@ -38,8 +38,10 @@ class UpdateClientRequest extends FormRequest
             'destination_id' => ['sometimes', 'exists:destinations,id'],
             'date_ouverture' => ['nullable', 'date'],
             'statut' => ['nullable', 'string', 'max:32'],
+
+            // ---- Champs du compte étudiant ----
             'account_email' => ['nullable', 'email', 'max:255'],
-            'gmail_password' => ['nullable', 'string', 'max:255'],
+            'email_password' => ['nullable', 'string', 'max:255'],   // ← corrigé de gmail_password
             'campus_password' => ['nullable', 'string', 'max:255'],
             'parcoursup_password' => ['nullable', 'string', 'max:255'],
         ];

@@ -100,7 +100,8 @@ class ClientController extends Controller
 
     public function show(Client $client): ClientResource
     {
-        return new ClientResource($client->load('destination'));
+        // ✅ CORRECTION ICI : On charge 'studentAccount' en plus de 'destination'
+        return new ClientResource($client->load(['destination', 'studentAccount']));
     }
 
     public function update(UpdateClientRequest $request, Client $client): ClientResource
