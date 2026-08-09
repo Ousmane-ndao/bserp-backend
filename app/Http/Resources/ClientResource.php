@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Http\Resources\StudentAccountResource; // <-- IMPORT AJOUTÉ
 
 class ClientResource extends JsonResource
 {
@@ -29,6 +30,7 @@ class ClientResource extends JsonResource
             'statut' => 'Actif',
             'createdAt' => $this->created_at?->toIso8601String(),
             'updatedAt' => $this->updated_at?->toIso8601String(),
+            'student_account' => new StudentAccountResource($this->whenLoaded('studentAccount')),
         ];
     }
 }
