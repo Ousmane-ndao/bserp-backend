@@ -90,13 +90,11 @@ class DossierController extends Controller
         $client = Client::query()->with('destination')->findOrFail($data['client_id']);
         $destination = $client->destination;
 
-        // ✅ CORRECTION ICI : Calcul dynamique du montant total selon la structure tarifaire
+        // ✅ CORRECTION ICI : Calcul du montant total = Part Agence (Frais accompagnement + TVA)
+        // Les frais Campus France et Visa ne sont pas inclus dans la part Agence.
         $fraisAccompagnement = $destination->frais_accompagnement ?? 0;
         $tva = $fraisAccompagnement * 0.10; // TVA 10%
-        $fraisCampus = $destination->frais_campus_france ?? 0;
-        $fraisVisa = $destination->frais_visa ?? 0;
-
-        $montantTotal = $fraisAccompagnement + $tva + $fraisCampus + $fraisVisa;
+        $montantTotal = $fraisAccompagnement + $tva; // = 137 500 FCFA
 
         $dossier = Dossier::query()->create([
             'client_id'       => $data['client_id'],
