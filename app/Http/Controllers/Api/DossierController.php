@@ -88,7 +88,15 @@ class DossierController extends Controller
         $reference = sprintf('D-%s-%03d', $year, $seq);
 
         $client = Client::query()->with('destination')->findOrFail($data['client_id']);
-        $montantTotal = (float) ($client->destination?->montant_total ?? PaymentService::DEFAULT_MONTANT_TOTAL);
+        $destination = $client->destination;
+
+        // ✅ CORRECTION ICI : Calcul dynamique du montant total selon la structure tarifaire
+        $fraisAccompagnement = $destination->frais_accompagnement ?? 0;
+        $tva = $fraisAccompagnement * 0.10; // TVA 10%
+        $fraisCampus = $destination->frais_campus_france ?? 0;
+        $fraisVisa = $destination->frais_visa ?? 0;
+
+        $montantTotal = $fraisAccompagnement + $tva + $fraisCampus + $fraisVisa;
 
         $dossier = Dossier::query()->create([
             'client_id'       => $data['client_id'],
@@ -100,6 +108,7 @@ class DossierController extends Controller
             'solde_restant'   => $montantTotal,
         ]);
 
+        // On passe le nouveau montant total calculé au service de paiement
         $this->paymentService->initializeDossierAmounts($dossier, $montantTotal);
 
         return (new DossierResource(
