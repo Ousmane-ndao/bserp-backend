@@ -33,13 +33,20 @@ php /app/artisan migrate --force --quiet || {
 }
 echo "✓ Migrations completed"
 
-# Ensure roles, employees and login accounts exist (idempotent).
-echo "Synchronizing database seeders..."
-php /app/artisan db:seed --force --quiet || {
-    echo "ERROR: Database seed failed"
-    exit 1
-}
-echo "✓ Database seeders completed"
+# Seeders (dont SecureUserSeeder, qui réécrit les mots de passe des comptes listés)
+# ne doivent PAS tourner à chaque redémarrage sur une base contenant déjà de vraies
+# données de prod : opt-in explicite via RUN_SEEDERS=true (ex. premier déploiement
+# sur une base vide), sinon on ne fait rien ici.
+if [ "${RUN_SEEDERS:-false}" = "true" ]; then
+    echo "Synchronizing database seeders (RUN_SEEDERS=true)..."
+    php /app/artisan db:seed --force --quiet || {
+        echo "ERROR: Database seed failed"
+        exit 1
+    }
+    echo "✓ Database seeders completed"
+else
+    echo "Skipping seeders (RUN_SEEDERS not set to true)"
+fi
 
 # Cache configuration (production)
 if [ "$APP_ENV" = "production" ]; then
