@@ -6,24 +6,37 @@ class DocumentCatalog
 {
     /** @var list<string> */
     public const REQUIRED_TYPES = [
-        'Photo',
         'CNI ou Passeport',
-        "Certificat d'inscription",
-        'Relevé de notes Bac',
-    ];
-
-    /** @var list<string> */
-    public const OPTIONAL_TYPES = [
         'Bulletins de notes',
         'Diplôme Bac',
-        'Travail',
+        "Certificat d'inscription",
+        'Relevé du Bac',
+        'Travaux',
+        'Photo',
         'CV',
     ];
+
+    /** @var array<string, string> */
+    private const TYPE_ALIASES = [
+        'Photo d’identité' => 'Photo',
+        "Photo d'identité" => 'Photo',
+        'Certificat de scolarité' => "Certificat d'inscription",
+        'Certificat d’inscription' => "Certificat d'inscription",
+        'Relevé de notes Bac' => 'Relevé du Bac',
+        'Travail' => 'Travaux',
+    ];
+
+    public static function normalizeType(?string $type): string
+    {
+        $value = trim((string) $type);
+
+        return self::TYPE_ALIASES[$value] ?? $value;
+    }
 
     /** @return list<string> */
     public static function allTypes(): array
     {
-        return array_values(array_unique(array_merge(self::REQUIRED_TYPES, self::OPTIONAL_TYPES)));
+        return self::REQUIRED_TYPES;
     }
 
     /**
@@ -40,7 +53,7 @@ class DocumentCatalog
     {
         $grouped = [];
         foreach ($documents as $doc) {
-            $type = (string) $doc->type_document;
+            $type = self::normalizeType($doc->type_document);
             if (! isset($grouped[$type])) {
                 $grouped[$type] = [];
             }
@@ -48,7 +61,6 @@ class DocumentCatalog
         }
 
         $checklist = self::REQUIRED_TYPES;
-        $checklist[] = 'Bulletins de notes';
 
         $presentCount = 0;
         $missingTypes = [];

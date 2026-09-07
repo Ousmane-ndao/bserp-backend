@@ -11,13 +11,13 @@ return new class extends Migration
     {
         if (! Schema::hasColumn('dossiers', 'montant_total')) {
             Schema::table('dossiers', function (Blueprint $table) {
-                $table->decimal('montant_total', 15, 2)->default(272500.00)->after('date_ouverture');
+                $table->decimal('montant_total', 15, 2)->default(137500.00)->after('date_ouverture');
             });
         }
 
         if (! Schema::hasColumn('dossiers', 'solde_restant')) {
             Schema::table('dossiers', function (Blueprint $table) {
-                $table->decimal('solde_restant', 15, 2)->default(272500.00)->after('montant_total');
+                $table->decimal('solde_restant', 15, 2)->default(137500.00)->after('montant_total');
             });
         }
 
@@ -47,8 +47,8 @@ return new class extends Migration
                 WITH updates AS (
                     SELECT
                         d.id,
-                        COALESCE(dest.montant_total, 272500.00) AS montant_total,
-                        ROUND(COALESCE(dest.montant_total, 272500.00) - COALESCE(p.total_paye, 0), 2) AS solde_restant
+                        COALESCE(dest.montant_total, 137500.00) AS montant_total,
+                        ROUND(COALESCE(dest.montant_total, 137500.00) - COALESCE(p.total_paye, 0), 2) AS solde_restant
                     FROM dossiers d
                     LEFT JOIN clients c ON c.id = d.client_id
                     LEFT JOIN destinations dest ON dest.id = c.destination_id
@@ -75,11 +75,11 @@ return new class extends Migration
             ->chunk(200, function ($dossiers): void {
                 foreach ($dossiers as $dossier) {
                     $client = DB::table('clients')->where('id', $dossier->client_id)->first();
-                    $montantTotal = 272500.00;
+                    $montantTotal = 137500.00;
 
                     if ($client?->destination_id) {
                         $dest = DB::table('destinations')->where('id', $client->destination_id)->first();
-                        $montantTotal = (float) ($dest?->montant_total ?? 272500.00);
+                        $montantTotal = (float) ($dest?->montant_total ?? 137500.00);
                     }
 
                     $totalPaye = (float) DB::table('payments')

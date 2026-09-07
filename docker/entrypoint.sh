@@ -4,13 +4,21 @@ set -e
 
 echo "Starting BSERP Backend..."
 
-# Wait for database to be ready
+mkdir -p /var/run /run /var/log/nginx /var/log/supervisor
+
+# Wait for database to be ready (Neon compute can take ~30s to wake).
 echo "Waiting for database to be ready..."
 DB_HOST=${DB_HOST:-localhost}
 DB_PORT=${DB_PORT:-5432}
 DB_USERNAME=${DB_USERNAME:-postgres}
-RETRY_LIMIT=60
+RETRY_LIMIT=90
 RETRY_COUNT=0
+
+echo "Resolving DB_HOST=${DB_HOST}..."
+if ! getent hosts "${DB_HOST}" >/dev/null 2>&1; then
+    echo "WARNING: getent could not resolve ${DB_HOST} (will retry via pg_isready)"
+    getent hosts "${DB_HOST}" || true
+fi
 
 until pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USERNAME}" 2>/dev/null || [ $RETRY_COUNT -eq $RETRY_LIMIT ]; do
     RETRY_COUNT=$((RETRY_COUNT + 1))
@@ -20,6 +28,8 @@ done
 
 if [ $RETRY_COUNT -eq $RETRY_LIMIT ]; then
     echo "ERROR: Database connection timed out after ${RETRY_LIMIT}s"
+    echo "DNS lookup for ${DB_HOST}:"
+    getent hosts "${DB_HOST}" || true
     exit 1
 fi
 
@@ -76,7 +86,7 @@ mkdir -p /app/storage/app/private/documents /app/storage/app/public || true
 # Set permissions
 echo "Setting permissions..."
 chmod -R 755 /app/storage /app/bootstrap/cache || true
-chown -R nobody:nobody /app/storage /app/bootstrap/cache || true
+chown -R www-data:www-data /app/storage /app/bootstrap/cache || true
 
 echo "✓ Application startup completed successfully!"
 echo "Starting application services..."

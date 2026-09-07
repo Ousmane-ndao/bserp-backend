@@ -54,32 +54,46 @@ final class DossierListQuery
         }
 
         if ($request->filled('date_ouverture_from')) {
-            $query->whereDate('dossiers.date_ouverture', '>=', $request->string('date_ouverture_from')->toString());
+            $query->where('dossiers.date_ouverture', '>=', $request->string('date_ouverture_from')->toString());
         }
         if ($request->filled('date_ouverture_to')) {
-            $query->whereDate('dossiers.date_ouverture', '<=', $request->string('date_ouverture_to')->toString());
+            $query->where('dossiers.date_ouverture', '<=', $request->string('date_ouverture_to')->toString());
         }
 
         return $query;
     }
 
+    public static function filteredCount(Request $request): int
+    {
+        return (int) self::filtered($request)->toBase()->getCountForPagination();
+    }
+
     /**
-     * Liste paginée : filtres + relations + comptages + tri.
+     * Liste paginée : une requête SQL (joins) au lieu de dossiers + clients + destinations.
      *
      * @return Builder<Dossier>
      */
     public static function base(Request $request): Builder
     {
         $query = self::filtered($request)
-            ->with([
-                'client:id,prenom,nom,email,telephone,destination_id',
-                'client.destination:id,name',
-            ])
-            ->withCount('documents');
+            ->leftJoin('clients as list_clients', 'list_clients.id', '=', 'dossiers.client_id')
+            ->leftJoin('destinations as list_dest', 'list_dest.id', '=', 'list_clients.destination_id')
+            ->select([
+                'dossiers.id',
+                'dossiers.client_id',
+                'dossiers.reference',
+                'dossiers.type',
+                'dossiers.statut',
+                'dossiers.date_ouverture',
+                'dossiers.created_at',
+                'list_clients.prenom as list_client_prenom',
+                'list_clients.nom as list_client_nom',
+                'list_dest.name as list_destination_name',
+            ]);
 
         self::applySort($query, $request);
 
-        return $query;
+        return $query->withCount('documents');
     }
 
     /**
@@ -150,20 +164,16 @@ final class DossierListQuery
         $sortDir = strtolower($request->string('sort_dir', 'desc')->toString()) === 'asc' ? 'asc' : 'desc';
 
         match ($sortBy) {
-            'reference' => $query->orderBy('dossiers.reference', $sortDir)->select('dossiers.*'),
+            'reference' => $query->orderBy('dossiers.reference', $sortDir),
             'client_name' => $query
-                ->leftJoin('clients as sort_clients', 'sort_clients.id', '=', 'dossiers.client_id')
-                ->orderBy('sort_clients.nom', $sortDir)
-                ->orderBy('sort_clients.prenom', $sortDir)
-                ->select('dossiers.*'),
-            'destination' => $query
-                ->leftJoin('clients as sort_clients2', 'sort_clients2.id', '=', 'dossiers.client_id')
-                ->leftJoin('destinations as sort_dest', 'sort_dest.id', '=', 'sort_clients2.destination_id')
-                ->orderBy('sort_dest.name', $sortDir)
-                ->select('dossiers.*'),
-            'date_ouverture' => $query->orderBy('dossiers.date_ouverture', $sortDir)->select('dossiers.*'),
-            'statut' => $query->orderBy('dossiers.statut', $sortDir)->select('dossiers.*'),
-            default => $query->orderBy('dossiers.id', $sortDir)->select('dossiers.*'),
+                ->orderBy('list_clients.nom', $sortDir)
+                ->orderBy('list_clients.prenom', $sortDir),
+            'destination' => $query->orderBy('list_dest.name', $sortDir),
+            'date_ouverture' => $query->orderBy('dossiers.date_ouverture', $sortDir),
+            'statut' => $query->orderBy('dossiers.statut', $sortDir),
+            default => null,
         };
+
+        $query->orderBy('dossiers.id', $sortDir);
     }
 }

@@ -7,6 +7,8 @@ $allowedOrigins = $origins
         'https://bserp.vercel.app',
         'http://localhost:8080',
         'http://127.0.0.1:8080',
+        'http://localhost:8081',
+        'http://127.0.0.1:8081',
         'http://localhost:5173',
         'http://192.168.1.8:8080',   // ← ajout pour ton IP locale
     ];
@@ -30,6 +32,6 @@ return [
 
     'max_age' => 86400,
 
-    'supports_credentials' => false, // ou true selon ta config (mais false est plus courant)
+    'supports_credentials' => true,
 
 ];

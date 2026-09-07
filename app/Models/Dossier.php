@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\PaymentService;
+use App\Support\DocumentCatalog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -57,6 +58,17 @@ class Dossier extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class);
+    }
+
+    public function estComplet(): bool
+    {
+        $this->loadMissing('documents:id,dossier_id,type_document');
+        $types = $this->documents
+            ->map(fn (Document $document) => DocumentCatalog::normalizeType($document->type_document))
+            ->unique()
+            ->all();
+
+        return count(array_intersect(DocumentCatalog::REQUIRED_TYPES, $types)) === count(DocumentCatalog::REQUIRED_TYPES);
     }
 
     public function payments(): HasMany

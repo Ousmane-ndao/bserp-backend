@@ -1,126 +1,107 @@
 # Stage 1: Builder
-FROM php:8.3-fpm-alpine AS builder
+# Debian (glibc) is required for Neon DNS: Alpine/musl often fails with
+# "could not translate host name ... Name or service not known".
+FROM php:8.3-fpm-bookworm AS builder
 
-# Install system dependencies
-RUN apk add --no-cache \
-    curl \
-    libpq-dev \
-    oniguruma-dev \
-    libzip-dev \
-    zlib-dev \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    git
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        git \
+        unzip \
+        libpq-dev \
+        libonig-dev \
+        libzip-dev \
+        zlib1g-dev \
+        libpng-dev \
+        libjpeg62-turbo-dev \
+        libfreetype6-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" \
+        pdo \
+        pdo_pgsql \
+        mbstring \
+        zip \
+        bcmath \
+        gd \
+        opcache \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
-    docker-php-ext-install \
-    pdo \
-    pdo_pgsql \
-    mbstring \
-    zip \
-    bcmath \
-    gd \
-    opcache
-
-# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set working directory
 WORKDIR /app
 
-# Copy composer files
 COPY composer.json composer.lock ./
 
-# Install PHP dependencies WITHOUT scripts (artisan doesn't exist yet)
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
 
-# Copy application code (now artisan is available)
 COPY . .
 
-# Generate optimized autoloader with scripts
 RUN composer dump-autoload --optimize
 
 # Stage 2: Runtime
-FROM php:8.3-fpm-alpine
+FROM php:8.3-fpm-bookworm
 
-# Install runtime dependencies
-RUN apk add --no-cache \
-    libpq \
-    oniguruma \
-    libzip \
-    zlib \
-    libpng \
-    libjpeg-turbo \
-    freetype \
-    nginx \
-    supervisor \
-    # Temporary dev packages for PHP extension installation
-    libpq-dev \
-    oniguruma-dev \
-    libzip-dev \
-    zlib-dev \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        libpq-dev \
+        libonig-dev \
+        libzip-dev \
+        zlib1g-dev \
+        libpng-dev \
+        libjpeg62-turbo-dev \
+        libfreetype6-dev \
+        libpq5 \
+        nginx \
+        supervisor \
+        postgresql-client \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" \
+        pdo \
+        pdo_pgsql \
+        mbstring \
+        zip \
+        bcmath \
+        gd \
+        opcache \
+    && apt-get purge -y --auto-remove \
+        libpq-dev \
+        libonig-dev \
+        libzip-dev \
+        zlib1g-dev \
+        libpng-dev \
+        libjpeg62-turbo-dev \
+        libfreetype6-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/local/etc/php-fpm.d/zz-docker.conf \
+    && rm -f /etc/nginx/sites-enabled/default \
+    && mkdir -p /var/log/nginx /run \
+    && printf '%s\n' 'precedence ::ffff:0:0/96  100' >> /etc/gai.conf
 
-# Install PHP extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
-    docker-php-ext-install \
-    pdo \
-    pdo_pgsql \
-    mbstring \
-    zip \
-    bcmath \
-    gd \
-    opcache && \
-    # Remove dev packages to reduce image size
-    apk del libpq-dev oniguruma-dev libzip-dev zlib-dev libpng-dev libjpeg-turbo-dev freetype-dev
-
-# Copy PHP-FPM config
 COPY docker/php.ini /usr/local/etc/php/php.ini
 COPY docker/php-fpm.conf /usr/local/etc/php-fpm.d/www.conf
-
-# Copy Nginx config
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/default.conf /etc/nginx/conf.d/default.conf
-
-# Copy Supervisor config
 COPY docker/supervisord.conf /etc/supervisord.conf
-
-# Copy entrypoint script
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Set working directory
 WORKDIR /app
 
-# Stockage documents (disque Render monté sur /app/storage)
 ENV FILESYSTEM_DISK=local
 ENV FILESYSTEM_LOCAL_ROOT=/app/storage/app/private
 ENV LOG_CHANNEL=stderr
 ENV LOG_STACK=stderr
 ENV CORS_ALLOWED_ORIGINS=https://bserp.vercel.app,http://localhost:8080,http://127.0.0.1:8080
 
-# Copy from builder
 COPY --from=builder /app .
 
-# Create necessary directories
-RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views /var/log/supervisor && \
-    chmod -R 755 storage bootstrap/cache /var/log/supervisor && \
-    chown -R nobody:nobody /app /var/log/supervisor
+RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views /var/log/supervisor /var/run \
+    && chmod -R 755 storage bootstrap/cache /var/log/supervisor \
+    && chown -R www-data:www-data /app /var/log/supervisor
 
-# Install pg_isready tool
-RUN apk add --no-cache postgresql-client
-
-# Expose port
 EXPOSE 80
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost/health || exit 1
 
-# Run entrypoint and start supervisor
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]

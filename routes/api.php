@@ -73,6 +73,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ));
         Route::get('/clients', [ClientController::class, 'index']);
         Route::get('/clients/options', [ClientController::class, 'options']);
+        Route::get('/exports/clients.pdf', [ClientController::class, 'pdf']);
         Route::get('/clients/{client}', [ClientController::class, 'show']);
         Route::get('/student-accounts/{client}', [StudentAccountController::class, 'show']);
         Route::get('/student-progress/{client}', [StudentProgressController::class, 'show']);

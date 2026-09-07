@@ -41,6 +41,7 @@ class DossierController extends Controller
     public function index(Request $request): AnonymousResourceCollection|JsonResponse
     {
         $perPage = min(max($request->integer('per_page', 10), 1), 500);
+        $page = max($request->integer('page', 1), 1);
 
         if ($request->boolean('cursor_mode')) {
             $cursor = $request->query('cursor');
@@ -60,9 +61,25 @@ class DossierController extends Controller
             ]);
         }
 
-        return DossierResource::collection(
-            DossierListQuery::base($request)->paginate($perPage)
-        );
+        $total = DossierListQuery::filteredCount($request);
+
+        $paginator = DossierListQuery::base($request)
+            ->paginate($perPage, ['*'], 'page', $page, $total)
+            ->appends($request->except('page'));
+
+        return response()->json([
+            'data' => DossierResource::collection(collect($paginator->items()))->resolve(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
+                'next_page_url' => $paginator->nextPageUrl(),
+                'prev_page_url' => $paginator->previousPageUrl(),
+            ],
+        ]);
     }
 
     public function store(StoreDossierRequest $request): JsonResponse
@@ -92,9 +109,9 @@ class DossierController extends Controller
 
         // ✅ CORRECTION ICI : Calcul du montant total = Part Agence (Frais accompagnement + TVA)
         // Les frais Campus France et Visa ne sont pas inclus dans la part Agence.
-        $fraisAccompagnement = $destination->frais_accompagnement ?? 0;
-        $tva = $fraisAccompagnement * 0.10; // TVA 10%
-        $montantTotal = $fraisAccompagnement + $tva; // = 137 500 FCFA
+        $montantTotal = $destination->frais_accompagnement !== null
+            ? (float) $destination->frais_accompagnement * 1.10
+            : (float) ($destination->montant_total ?? PaymentService::DEFAULT_MONTANT_TOTAL);
 
         $dossier = Dossier::query()->create([
             'client_id'       => $data['client_id'],

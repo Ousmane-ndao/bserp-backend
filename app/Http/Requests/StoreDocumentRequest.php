@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Support\DocumentCatalog;
 
 class StoreDocumentRequest extends FormRequest
 {
@@ -20,6 +21,11 @@ class StoreDocumentRequest extends FormRequest
         if ($this->has('type_document') && $this->input('type_document') === '') {
             $this->merge(['type_document' => null]);
         }
+        if ($this->filled('type_document')) {
+            $this->merge([
+                'type_document' => DocumentCatalog::normalizeType($this->string('type_document')->toString()),
+            ]);
+        }
     }
 
     /**
@@ -31,8 +37,8 @@ class StoreDocumentRequest extends FormRequest
             'Bulletins de notes',
             'Diplôme Bac',
             "Certificat d'inscription",
-            'Relevé de notes Bac',
-            'Travail',
+            'Relevé du Bac',
+            'Travaux',
             'Photo',
             'CNI ou Passeport',
             'CV',

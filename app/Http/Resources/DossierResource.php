@@ -12,7 +12,7 @@ class DossierResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $client = $this->whenLoaded('client');
+        $client = $this->relationLoaded('client') ? $this->client : null;
         $destination = $client && $client->relationLoaded('destination')
             ? $client->destination
             : null;
@@ -21,14 +21,16 @@ class DossierResource extends JsonResource
             ? (int) $this->resource->documents_count
             : ($this->relationLoaded('documents') ? $this->documents->count() : 0);
 
+        $joinedClientName = trim(($this->list_client_prenom ?? '').' '.($this->list_client_nom ?? ''));
+
         return [
             'id' => (string) $this->id,
             'reference' => $this->reference,
-            'client' => $client ? trim($client->prenom.' '.$client->nom) : null,
+            'client' => $client ? trim($client->prenom.' '.$client->nom) : ($joinedClientName !== '' ? $joinedClientName : null),
             'clientId' => (string) $this->client_id,
             'clientEmail' => $client?->email,
             'clientTelephone' => $client?->telephone,
-            'destination' => $destination?->name,
+            'destination' => $destination?->name ?? $this->list_destination_name,
             'type' => $this->type,
             'statut' => $this->statut,
             'date' => $this->date_ouverture?->format('Y-m-d') ?? $this->created_at?->format('Y-m-d'),

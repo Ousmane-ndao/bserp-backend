@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Http\Resources\ClientResource;
+use App\Models\CompanySetting;
 use App\Models\Client;
 use App\Models\Destination;
 use App\Services\ClientAccountService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\Response;
 
 class ClientController extends Controller
 {
@@ -72,6 +75,40 @@ class ClientController extends Controller
         ])->values()->all();
 
         return response()->json(['data' => $data]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        $query = Client::query()
+            ->select([
+                'id', 'prenom', 'nom', 'email', 'telephone',
+                'date_naissance', 'etablissement', 'niveau_etude',
+                'destination_id', 'date_ouverture', 'created_at',
+            ])
+            ->with('destination:id,name,region');
+
+        if ($request->filled('search')) {
+            $s = '%'.$request->string('search')->toString().'%';
+            $query->where(function ($q) use ($s) {
+                $q->where('nom', 'like', $s)
+                    ->orWhere('prenom', 'like', $s)
+                    ->orWhere('email', 'like', $s)
+                    ->orWhere('telephone', 'like', $s);
+            });
+        }
+
+        if ($request->filled('destination_id')) {
+            $query->where('destination_id', $request->integer('destination_id'));
+        }
+
+        $pdf = Pdf::loadView('exports.clients-list', [
+            'company' => CompanySetting::query()->first(),
+            'clients' => $query->orderByDesc('id')->get(),
+            'generatedAt' => now()->locale('fr')->isoFormat('LLL'),
+            'filters' => $request->only(['search', 'destination_id']),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('clients-'.now()->format('Y-m-d').'.pdf');
     }
 
     public function store(StoreClientRequest $request): JsonResponse

@@ -26,25 +26,21 @@ services:
       - key: LOG_LEVEL
         value: info
 
-      # Database configuration
+      # Database: Neon (valeurs dans le dashboard Render, ne pas lier bserp-db).
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_PORT
         value: "5432"
-      - key: DB_DATABASE
-        value: bserp
+      - key: DB_SSLMODE
+        value: require
       - key: DB_HOST
-        fromDatabase:
-          name: bserp-db
-          property: host
+        sync: false
+      - key: DB_DATABASE
+        sync: false
       - key: DB_USERNAME
-        fromDatabase:
-          name: bserp-db
-          property: username
+        sync: false
       - key: DB_PASSWORD
-        fromDatabase:
-          name: bserp-db
-          property: password
+        sync: false
 
       # Cache & Session
       - key: CACHE_STORE

@@ -21,7 +21,7 @@ class PaymentService
 
     public const STATUT_TROP_PERCU = 'Trop-perçu';
 
-    public const DEFAULT_MONTANT_TOTAL = 272500.00;
+    public const DEFAULT_MONTANT_TOTAL = 137500.00;
 
     public function assertDossierBelongsToClient(Dossier $dossier, Client $client): void
     {
