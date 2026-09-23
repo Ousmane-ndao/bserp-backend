@@ -38,17 +38,19 @@ final class DossierListQuery
         if ($request->filled('destination_group')) {
             $group = strtolower($request->string('destination_group')->toString());
             if (in_array($group, ['france', 'canada', 'maroc', 'autres'], true)) {
-                $query->whereHas('client', function ($cq) use ($group) {
-                    $cq->whereHas('destination', function ($dq) use ($group) {
-                        match ($group) {
-                            'france' => $dq->whereRaw('LOWER(TRIM(name)) = ?', ['france']),
-                            'canada' => $dq->whereRaw('LOWER(name) LIKE ?', ['%canada%']),
-                            'maroc' => $dq->whereRaw('LOWER(name) LIKE ?', ['%maroc%']),
-                            'autres' => $dq->whereRaw('LOWER(TRIM(name)) != ?', ['france'])
-                                ->whereRaw('LOWER(name) NOT LIKE ?', ['%canada%'])
-                                ->whereRaw('LOWER(name) NOT LIKE ?', ['%maroc%']),
-                        };
-                    });
+                $query->whereExists(function ($exists) use ($group) {
+                    $exists->selectRaw('1')
+                        ->from('clients')
+                        ->join('destinations', 'destinations.id', '=', 'clients.destination_id')
+                        ->whereColumn('clients.id', 'dossiers.client_id');
+                    match ($group) {
+                        'france' => $exists->whereRaw('LOWER(TRIM(destinations.name)) = ?', ['france']),
+                        'canada' => $exists->whereRaw('LOWER(destinations.name) LIKE ?', ['%canada%']),
+                        'maroc' => $exists->whereRaw('LOWER(destinations.name) LIKE ?', ['%maroc%']),
+                        'autres' => $exists->whereRaw('LOWER(TRIM(destinations.name)) != ?', ['france'])
+                            ->whereRaw('LOWER(destinations.name) NOT LIKE ?', ['%canada%'])
+                            ->whereRaw('LOWER(destinations.name) NOT LIKE ?', ['%maroc%']),
+                    };
                 });
             }
         }
@@ -65,7 +67,18 @@ final class DossierListQuery
 
     public static function filteredCount(Request $request): int
     {
-        return (int) self::filtered($request)->toBase()->getCountForPagination();
+        $filters = $request->only([
+            'client_id',
+            'search',
+            'statut',
+            'destination_group',
+            'date_ouverture_from',
+            'date_ouverture_to',
+        ]);
+
+        return ListCountCache::remember('dossiers', $filters, function () use ($request) {
+            return (int) self::filtered($request)->toBase()->getCountForPagination();
+        });
     }
 
     /**
@@ -93,7 +106,7 @@ final class DossierListQuery
 
         self::applySort($query, $request);
 
-        return $query->withCount('documents');
+        return $query;
     }
 
     /**

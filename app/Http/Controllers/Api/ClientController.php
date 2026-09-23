@@ -10,6 +10,7 @@ use App\Models\CompanySetting;
 use App\Models\Client;
 use App\Models\Destination;
 use App\Services\ClientAccountService;
+use App\Support\ListCountCache;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class ClientController extends Controller
             ->select([
                 'id', 'prenom', 'nom', 'email', 'telephone',
                 'date_naissance', 'etablissement', 'niveau_etude',
-                'destination_id', 'date_ouverture', 'created_at',
+                'destination_id', 'date_ouverture', 'created_at', 'updated_at',
             ])
             ->with(['destination:id,name,region,type_compte']);
 
@@ -47,8 +48,16 @@ class ClientController extends Controller
         }
 
         $perPage = min($request->integer('per_page', 20), 100);
+        $page = max($request->integer('page', 1), 1);
+        $total = ListCountCache::remember(
+            'clients',
+            $request->only(['search', 'destination_id']),
+            fn () => (int) (clone $query)->toBase()->getCountForPagination()
+        );
 
-        return ClientResource::collection($query->orderByDesc('id')->paginate($perPage));
+        return ClientResource::collection(
+            $query->orderByDesc('id')->paginate($perPage, ['*'], 'page', $page, $total)
+        );
     }
 
     public function options(Request $request): JsonResponse

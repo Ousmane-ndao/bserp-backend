@@ -29,8 +29,14 @@ class Client extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats'));
-        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats'));
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats');
+            \App\Support\ListCountCache::bump('clients');
+        });
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats');
+            \App\Support\ListCountCache::bump('clients');
+        });
     }
 
     public function destination(): BelongsTo

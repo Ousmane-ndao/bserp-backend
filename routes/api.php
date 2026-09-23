@@ -54,6 +54,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/settings/password', [AuthController::class, 'updatePassword']);
 
     Route::get('/dashboard', DashboardController::class);
+    Route::get('/dashboard/solde-restant', [DashboardController::class, 'soldeRestant'])
+        ->middleware('role:directrice,responsable_admin,comptable,informaticien');
 
     // (debug route removed) typo-capture route cleaned up
 
@@ -79,12 +81,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/student-progress/{client}', [StudentProgressController::class, 'show']);
     });
 
-    Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil')->group(function () {
+    Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil')->group(function () {
         Route::post('/clients', [ClientController::class, 'store']);
         Route::put('/clients/{client}', [ClientController::class, 'update']);
     });
 
-    Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil')->group(function () {
+    Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil')->group(function () {
         Route::post('/student-accounts', [StudentAccountController::class, 'store']);
         Route::put('/student-accounts/{client}', [StudentAccountController::class, 'update']);
         Route::patch('/student-accounts/{client}', [StudentAccountController::class, 'update']);
@@ -93,9 +95,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/student-progress/{client}', [StudentProgressController::class, 'update']);
     });
     Route::delete('/clients/{client}', [ClientController::class, 'destroy'])
-        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil');
 
-    Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil')->group(function () {
+    Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil')->group(function () {
         Route::get('/my-dossier', [MyDossierController::class, 'show']);
         Route::get('/documents', [DocumentController::class, 'index']);
         Route::get('/documents/clients-summary', [DocumentController::class, 'clientsSummary']);
@@ -113,22 +115,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/exports/dossiers/{dossierExport}/download', [ExportController::class, 'dossiersQueueDownload']);
     });
 
-    // ⚠️ LIGNE MODIFIÉE : Le middleware de rôle a été commenté pour permettre le test curl
-    Route::post('/documents', [DocumentController::class, 'store']);
-    // ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien');
+    Route::post('/documents', [DocumentController::class, 'store'])
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil');
 
     Route::put('/documents/{document}', [DocumentController::class, 'update'])
-        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil');
     Route::patch('/documents/{document}', [DocumentController::class, 'update'])
-        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil');
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])
-        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil');
     Route::post('/dossiers', [DossierController::class, 'store'])
-        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil');
     Route::put('/dossiers/{dossier}', [DossierController::class, 'update'])
-        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,commercial,accueil');
+        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien,comptable,commercial,accueil');
     Route::delete('/dossiers/{dossier}', [DossierController::class, 'destroy'])
-        ->middleware('role:directrice,responsable_admin,conseillere_pedagogique,informaticien');
+        ->middleware('role:directrice,responsable_admin,informaticien,comptable');
 
     Route::middleware('role:directrice,responsable_admin,comptable,informaticien')->group(function () {
         Route::get('/clients/{client}/dossiers/{dossier}/payments', [DossierPaymentController::class, 'index']);

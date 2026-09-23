@@ -21,4 +21,10 @@ class Expense extends Model
             'date_depense' => 'date',
         ];
     }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('accounting_summary'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('accounting_summary'));
+    }
 }

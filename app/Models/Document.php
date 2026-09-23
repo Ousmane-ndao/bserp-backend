@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class Document extends Model
@@ -35,6 +36,12 @@ class Document extends Model
         'size_bytes',
         'mime',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => Cache::forget('dashboard_full_stats'));
+        static::deleted(fn () => Cache::forget('dashboard_full_stats'));
+    }
 
     public function client(): BelongsTo
     {

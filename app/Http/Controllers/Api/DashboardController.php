@@ -4,10 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
-use App\Models\Dossier;
 use App\Models\Invoice;
 use App\Services\PaymentService;
+use App\Support\DocumentCatalog;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -43,6 +44,24 @@ class DashboardController extends Controller
         }
     }
 
+    public function soldeRestant(Request $request): JsonResponse
+    {
+        $period = $request->string('period', 'all')->toString();
+        $clientId = $request->filled('client_id') ? $request->integer('client_id') : null;
+        $statut = $request->string('statut')->toString() ?: null;
+
+        $data = app(PaymentService::class)->aggregateOutstanding($period, $clientId, $statut);
+
+        return response()->json([
+            'data' => $data,
+            'filters' => [
+                'period' => $period,
+                'client_id' => $clientId,
+                'statut' => $statut,
+            ],
+        ]);
+    }
+
     private function getStats(): array
     {
         $today = now()->toDateString();
@@ -76,11 +95,9 @@ class DashboardController extends Controller
             ", [$today, $startOfMonth, $endOfMonth])
             ->first();
 
-        // 2. Complétude documentaire: indépendante du statut métier.
-        $dossiersComplets = Dossier::query()->with('documents:id,dossier_id,type_document')->get()
-            ->filter(fn (Dossier $dossier) => $dossier->estComplet())
-            ->count();
-        $documentsManquants = Dossier::query()->whereDoesntHave('documents')->count();
+        // 2. Complétude documentaire (SQL DISTINCT, pas d'hydratation Eloquent).
+        $dossiersComplets = DocumentCatalog::countCompleteDossiers();
+        $documentsManquants = DocumentCatalog::countDossiersWithoutDocuments();
 
         // 3. Stats Invoices et Paiements
         $invoiceStats = DB::table('invoices')
@@ -204,6 +221,7 @@ class DashboardController extends Controller
             'dossiers_trend_mois' => $dossiersTrendMois,
             'revenus_trend_mois' => $revenusTrendMois,
             'dossiers_par_destination' => $dossiersParDestination,
+            'solde_restant_total' => (float) DB::table('dossiers')->sum('solde_restant'),
         ];
     }
 }

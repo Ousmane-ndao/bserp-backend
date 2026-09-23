@@ -46,8 +46,14 @@ class Dossier extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => Cache::forget('dashboard_full_stats'));
-        static::deleted(fn () => Cache::forget('dashboard_full_stats'));
+        static::saved(function () {
+            Cache::forget('dashboard_full_stats');
+            \App\Support\ListCountCache::bump('dossiers');
+        });
+        static::deleted(function () {
+            Cache::forget('dashboard_full_stats');
+            \App\Support\ListCountCache::bump('dossiers');
+        });
     }
 
     public function client(): BelongsTo

@@ -9,7 +9,7 @@ trait DocumentsDisk
 {
     protected function documentsDiskName(): string
     {
-        return env('DOCUMENTS_DISK', config('filesystems.default', 'local'));
+        return (string) config('filesystems.documents_disk', config('filesystems.default', 'local'));
     }
 
     protected function documentsDisk(): Filesystem

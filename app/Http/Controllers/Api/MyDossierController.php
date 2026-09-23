@@ -19,6 +19,7 @@ class MyDossierController extends Controller
         'responsable_admin',
         'conseillere_pedagogique',
         'informaticien',
+        'comptable',
         'commercial',
         'accueil',
     ];

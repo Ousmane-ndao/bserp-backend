@@ -87,4 +87,38 @@ class ClientDossierCreateApiTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('data.statut', 'En cours');
     }
+
+    public function test_comptable_can_create_client_and_read_full_profile(): void
+    {
+        $user = $this->userForRole('comptable');
+        $destination = $this->destination();
+
+        Sanctum::actingAs($user);
+
+        $create = $this->postJson('/api/clients', [
+            'prenom' => 'Amina',
+            'nom' => 'Compta',
+            'email' => 'amina_'.uniqid('', true).'@test.com',
+            'telephone' => '0600000000',
+            'destination_id' => $destination->id,
+        ]);
+
+        $create->assertCreated()
+            ->assertJsonPath('data.prenom', 'Amina');
+
+        $clientId = $create->json('data.id');
+
+        $this->getJson("/api/clients/{$clientId}")
+            ->assertOk()
+            ->assertJsonPath('data.nom', 'Compta');
+
+        $this->putJson("/api/clients/{$clientId}", [
+            'prenom' => 'Amina',
+            'nom' => 'Compta',
+            'email' => $create->json('data.email'),
+            'telephone' => '0611111111',
+            'destination_id' => $destination->id,
+        ])->assertOk()
+            ->assertJsonPath('data.telephone', '0611111111');
+    }
 }

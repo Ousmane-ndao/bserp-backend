@@ -13,6 +13,7 @@ use App\Support\DossierListQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 
 class DossierController extends Controller
 {
@@ -66,6 +67,19 @@ class DossierController extends Controller
         $paginator = DossierListQuery::base($request)
             ->paginate($perPage, ['*'], 'page', $page, $total)
             ->appends($request->except('page'));
+
+        $items = collect($paginator->items());
+        $ids = $items->pluck('id')->all();
+        if ($ids !== []) {
+            $counts = DB::table('documents')
+                ->selectRaw('dossier_id, COUNT(*) as c')
+                ->whereIn('dossier_id', $ids)
+                ->groupBy('dossier_id')
+                ->pluck('c', 'dossier_id');
+            foreach ($items as $dossier) {
+                $dossier->documents_count = (int) ($counts[$dossier->id] ?? 0);
+            }
+        }
 
         return response()->json([
             'data' => DossierResource::collection(collect($paginator->items()))->resolve(),

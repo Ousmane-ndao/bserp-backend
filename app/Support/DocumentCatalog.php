@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\DB;
+
 class DocumentCatalog
 {
     /** @var list<string> */
@@ -23,20 +25,81 @@ class DocumentCatalog
         'Certificat de scolarité' => "Certificat d'inscription",
         'Certificat d’inscription' => "Certificat d'inscription",
         'Relevé de notes Bac' => 'Relevé du Bac',
+        'RELEVE DU BAC' => 'Relevé du Bac',
+        'Relevé DU BAC' => 'Relevé du Bac',
         'Travail' => 'Travaux',
     ];
 
     public static function normalizeType(?string $type): string
     {
         $value = trim((string) $type);
+        if ($value === '') {
+            return 'CNI ou Passeport';
+        }
+        if (isset(self::TYPE_ALIASES[$value])) {
+            return self::TYPE_ALIASES[$value];
+        }
+        $upper = mb_strtoupper($value);
+        foreach (self::TYPE_ALIASES as $alias => $canonical) {
+            if (mb_strtoupper((string) $alias) === $upper) {
+                return $canonical;
+            }
+        }
+        foreach (self::REQUIRED_TYPES as $canonical) {
+            if (mb_strtoupper($canonical) === $upper) {
+                return $canonical;
+            }
+        }
 
-        return self::TYPE_ALIASES[$value] ?? $value;
+        return $value;
     }
 
     /** @return list<string> */
     public static function allTypes(): array
     {
         return self::REQUIRED_TYPES;
+    }
+
+    /**
+     * Compte les dossiers ayant tous les types de documents requis (après normalisation).
+     * Une requête DISTINCT, sans hydrater les modèles Eloquent.
+     */
+    public static function countCompleteDossiers(): int
+    {
+        $required = self::REQUIRED_TYPES;
+        $rows = DB::table('documents')
+            ->whereNotNull('dossier_id')
+            ->select(['dossier_id', 'type_document'])
+            ->distinct()
+            ->get();
+
+        $byDossier = [];
+        foreach ($rows as $row) {
+            $byDossier[(int) $row->dossier_id][self::normalizeType((string) $row->type_document)] = true;
+        }
+
+        $complete = 0;
+        foreach ($byDossier as $types) {
+            foreach ($required as $type) {
+                if (! isset($types[$type])) {
+                    continue 2;
+                }
+            }
+            $complete++;
+        }
+
+        return $complete;
+    }
+
+    public static function countDossiersWithoutDocuments(): int
+    {
+        return (int) DB::table('dossiers')
+            ->whereNotExists(function ($query) {
+                $query->selectRaw('1')
+                    ->from('documents')
+                    ->whereColumn('documents.dossier_id', 'dossiers.id');
+            })
+            ->count();
     }
 
     /**

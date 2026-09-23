@@ -3,18 +3,21 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreDocumentRequest;
 use App\Http\Resources\DocumentResource;
 use App\Models\Client;
 use App\Models\Document;
 use App\Models\Dossier;
 use App\Support\DocumentCatalog;
+use App\Support\DocumentsDisk;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use App\Support\DocumentsDisk;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
@@ -103,79 +106,68 @@ class DocumentController extends Controller
         }
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreDocumentRequest $request): JsonResponse
     {
+        $file = $request->file('file');
+        if (! $file instanceof UploadedFile || ! $file->isValid()) {
+            return response()->json(['message' => 'Fichier manquant ou invalide.'], 422);
+        }
+
+        $dossier = Dossier::query()->with('client')->findOrFail($request->integer('dossier_id'));
+        $originalName = $this->sanitizedOriginalFilename($file);
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'bin');
+        $storedName = Str::uuid()->toString().'.'.$extension;
+        $diskName = $this->documentsDiskName();
+
         try {
-            $uploadedFile = $request->file('file');
-
-            Log::info('documents.store request', [
-                'content_type' => $request->header('Content-Type'),
-                'content_length' => $request->header('Content-Length'),
-                'has_file' => $request->hasFile('file'),
-                'dossier_id' => $request->input('dossier_id'),
-                'type_document' => $request->input('type_document'),
-                'file_name' => $uploadedFile?->getClientOriginalName(),
-                'file_size' => $uploadedFile?->getSize(),
-                'file_valid' => $uploadedFile?->isValid(),
-            ]);
-
-            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
-                'dossier_id' => 'required|exists:dossiers,id',
-                'type_document' => 'required|string|max:255',
-                'file' => 'required|file|max:20480',
-            ]);
-
-            if ($validator->fails()) {
-                Log::warning('documents.store validation failed', ['errors' => $validator->errors()->toArray()]);
-                return response()->json(['message' => 'Données invalides.', 'errors' => $validator->errors()], 422);
+            $path = $file->storeAs('documents', $storedName, $diskName);
+            if (! is_string($path) || $path === '') {
+                throw new \RuntimeException('Échec de l’enregistrement du fichier sur le stockage.');
             }
 
-            $dossier = Dossier::with('client')->findOrFail($request->input('dossier_id'));
-            $file = $request->file('file');
-
-            if (! $file || ! $file->isValid()) {
-                return response()->json(['message' => 'Fichier manquant ou invalide.'], 422);
-            }
-
-            $diskName = $this->documentsDiskName();
-            $path = $file->store('documents', $diskName);
-            if (! $path) {
-                throw new \RuntimeException('Échec de l’enregistrement du fichier sur le disque.');
-            }
-
-            $document = Document::create([
+            $payload = [
                 'client_id' => $dossier->client_id,
                 'dossier_id' => $dossier->id,
-                'type_document' => $request->input('type_document', 'CNI ou Passeport'),
-                'statut' => Document::hasStatutColumn() ? 'En attente' : null,
+                'type_document' => DocumentCatalog::normalizeType($request->input('type_document')),
                 'file_path' => $path,
-                'original_filename' => $file->getClientOriginalName(),
+                'original_filename' => $originalName,
                 'size_bytes' => $file->getSize(),
-                'mime' => $file->getClientMimeType(),
-            ]);
+                'mime' => $file->getMimeType() ?: $file->getClientMimeType(),
+            ];
+            if (Document::hasStatutColumn()) {
+                $payload['statut'] = 'En attente';
+            }
 
-            return (new DocumentResource($document->load('client')))->response()->setStatusCode(201);
+            $document = Document::query()->create($payload);
+
+            return (new DocumentResource($document->load('client')))
+                ->response()
+                ->setStatusCode(201);
         } catch (\Throwable $e) {
-            \Log::error('UPLOAD EXCEPTION: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-            ]);
             Log::error('documents.store failed', [
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
-                'user_id' => optional($request->user())->id,
+                'user_id' => $request->user()?->id,
+                'original_filename' => $originalName,
+                'disk' => $diskName,
             ]);
 
-            // 🔥 CORRECTION ULTIME : Renvoyer l'erreur exacte dans le navigateur
             return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de l\'upload.',
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'message' => 'Impossible d’enregistrer le document. Vérifiez le stockage (R2/disque) puis réessayez.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
+    }
+
+    private function sanitizedOriginalFilename(UploadedFile $file): string
+    {
+        $name = str_replace(["\0", '/', '\\'], '', $file->getClientOriginalName());
+        $name = trim($name);
+        if ($name === '') {
+            $name = 'document';
+        }
+
+        return mb_substr($name, 0, 240);
     }
 
     public function show(Document $document): DocumentResource

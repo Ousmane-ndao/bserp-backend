@@ -46,7 +46,7 @@ class StoreDocumentRequest extends FormRequest
 
         return [
             'dossier_id' => ['required', 'integer', 'exists:dossiers,id'],
-            'file' => ['required', 'file', 'max:15360'],
+            'file' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx'],
             'type_document' => ['nullable', 'string', Rule::in($types)],
         ];
     }

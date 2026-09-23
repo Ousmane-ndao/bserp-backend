@@ -15,6 +15,8 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    'documents_disk' => env('DOCUMENTS_DISK', env('FILESYSTEM_DISK', 'local')),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
@@ -32,8 +34,8 @@ return [
 
         'local' => [
             'driver' => 'local',
-            'root' => storage_path('app'),
-            'throw' => false,
+            'root' => env('FILESYSTEM_LOCAL_ROOT', storage_path('app')),
+            'throw' => true,
         ],
 
         'public' => [
@@ -53,9 +55,9 @@ return [
             'bucket' => env('R2_BUCKET'),
             'url' => env('R2_URL'),
             'endpoint' => env('R2_ENDPOINT'),
-            'use_path_style_endpoint' => env('R2_USE_PATH_STYLE_ENDPOINT', false),
-            'visibility' => 'public', // ou 'private' selon ton besoin
-            'throw' => true,          // pour lever des exceptions en cas d'erreur
+            'use_path_style_endpoint' => env('R2_USE_PATH_STYLE_ENDPOINT', true),
+            'visibility' => 'private',
+            'throw' => true,
         ],
         // -------------------------------------------
 

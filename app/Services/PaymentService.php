@@ -94,6 +94,136 @@ class PaymentService
         ];
     }
 
+    /**
+     * Agrégation des impayés (filtres dashboard).
+     *
+     * @return array{
+     *   montant_total_du: float,
+     *   montant_paye: float,
+     *   solde_restant_total: float,
+     *   dossiers_count: int,
+     *   clients: list<array<string, mixed>>
+     * }
+     */
+    public function aggregateOutstanding(?string $period = 'all', ?int $clientId = null, ?string $statut = null): array
+    {
+        $paidExpr = 'COALESCE(paid.total_paye, 0)';
+
+        $paidSub = DB::table('payments')
+            ->select('dossier_id', DB::raw('SUM(montant) as total_paye'))
+            ->groupBy('dossier_id');
+
+        $query = Dossier::query()
+            ->from('dossiers')
+            ->join('clients', 'clients.id', '=', 'dossiers.client_id')
+            ->leftJoinSub($paidSub, 'paid', 'paid.dossier_id', '=', 'dossiers.id')
+            ->select([
+                'dossiers.id',
+                'dossiers.client_id',
+                'dossiers.reference',
+                'dossiers.montant_total',
+                'clients.prenom',
+                'clients.nom',
+            ])
+            ->selectRaw($paidExpr.' as total_paye');
+
+        $now = now();
+        match ($period) {
+            'mois', 'month' => $query->whereBetween('dossiers.date_ouverture', [
+                $now->copy()->startOfMonth()->toDateString(),
+                $now->copy()->endOfMonth()->toDateString(),
+            ]),
+            'trimestre', 'quarter' => $query->whereBetween('dossiers.date_ouverture', [
+                $now->copy()->firstOfQuarter()->toDateString(),
+                $now->copy()->lastOfQuarter()->toDateString(),
+            ]),
+            'annee', 'year' => $query->whereBetween('dossiers.date_ouverture', [
+                $now->copy()->startOfYear()->toDateString(),
+                $now->copy()->endOfYear()->toDateString(),
+            ]),
+            default => null,
+        };
+
+        if ($clientId) {
+            $query->where('dossiers.client_id', $clientId);
+        }
+
+        $rows = $query->get();
+        $statutFilter = strtolower((string) $statut);
+        $statutMap = [
+            'paye' => self::STATUT_PAYE,
+            'payé' => self::STATUT_PAYE,
+            'partiel' => self::STATUT_PARTIEL,
+            'impaye' => self::STATUT_EN_ATTENTE,
+            'impayé' => self::STATUT_EN_ATTENTE,
+        ];
+        $wanted = $statutMap[$statutFilter] ?? null;
+
+        $clients = [];
+        $montantDu = 0.0;
+        $montantPaye = 0.0;
+        $dossierCount = 0;
+
+        foreach ($rows as $row) {
+            $due = (float) $row->montant_total;
+            $paid = (float) $row->total_paye;
+            $solde = round($due - $paid, 2);
+            $rowStatut = $paid <= 0
+                ? self::STATUT_EN_ATTENTE
+                : ($solde <= 0 ? self::STATUT_PAYE : self::STATUT_PARTIEL);
+
+            if ($wanted === self::STATUT_PAYE && $rowStatut !== self::STATUT_PAYE) {
+                continue;
+            }
+            if ($wanted === self::STATUT_PARTIEL && $rowStatut !== self::STATUT_PARTIEL) {
+                continue;
+            }
+            if ($wanted === self::STATUT_EN_ATTENTE && $rowStatut !== self::STATUT_EN_ATTENTE) {
+                continue;
+            }
+
+            $dossierCount++;
+            $montantDu += $due;
+            $montantPaye += $paid;
+            $cid = (string) $row->client_id;
+            if (! isset($clients[$cid])) {
+                $clients[$cid] = [
+                    'clientId' => $cid,
+                    'clientName' => trim(($row->prenom ?? '').' '.($row->nom ?? '')),
+                    'montantTotal' => 0.0,
+                    'montantPaye' => 0.0,
+                    'soldeRestant' => 0.0,
+                    'dossiersCount' => 0,
+                ];
+            }
+            $clients[$cid]['montantTotal'] += $due;
+            $clients[$cid]['montantPaye'] += $paid;
+            $clients[$cid]['soldeRestant'] += $solde;
+            $clients[$cid]['dossiersCount']++;
+        }
+
+        $clientList = array_values($clients);
+        usort($clientList, fn ($a, $b) => $b['soldeRestant'] <=> $a['soldeRestant']);
+
+        foreach ($clientList as &$client) {
+            $client['montantTotal'] = round($client['montantTotal'], 2);
+            $client['montantPaye'] = round($client['montantPaye'], 2);
+            $client['soldeRestant'] = round($client['soldeRestant'], 2);
+            $client['statut'] = $client['montantPaye'] <= 0
+                ? self::STATUT_EN_ATTENTE
+                : ($client['soldeRestant'] <= 0 ? self::STATUT_PAYE : self::STATUT_PARTIEL);
+        }
+        unset($client);
+
+        return [
+            'montant_total_du' => round($montantDu, 2),
+            'montant_paye' => round($montantPaye, 2),
+            'solde_restant_total' => round($montantDu - $montantPaye, 2),
+            'dossiers_count' => $dossierCount,
+            'clients' => array_slice($clientList, 0, 50),
+        ];
+    }
+
     public function nextAvanceNumeroForDossier(Dossier $dossier): string
     {
         $count = Payment::query()->where('dossier_id', $dossier->id)->count();

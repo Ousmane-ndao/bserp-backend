@@ -28,8 +28,14 @@ class Payment extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats'));
-        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats'));
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats');
+            \Illuminate\Support\Facades\Cache::forget('accounting_summary');
+        });
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('dashboard_full_stats');
+            \Illuminate\Support\Facades\Cache::forget('accounting_summary');
+        });
     }
 
     public function client(): BelongsTo
