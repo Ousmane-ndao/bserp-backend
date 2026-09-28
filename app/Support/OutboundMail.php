@@ -31,7 +31,7 @@ class OutboundMail
             return 'L’e-mail n’a pas été remis : le mailer « array » ne sort pas du serveur.';
         }
 
-        if (in_array($host, ['mailpit', 'mailhog', 'localhost', '127.0.0.1', '::1'], true)) {
+        if ($name === 'smtp' && in_array($host, ['mailpit', 'mailhog', 'localhost', '127.0.0.1', '::1'], true)) {
             return 'L’e-mail n’a pas été remis : le serveur SMTP est local (Mailpit/Mailhog).';
         }
 
