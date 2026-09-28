@@ -95,9 +95,14 @@ class DashboardController extends Controller
             ", [$today, $startOfMonth, $endOfMonth])
             ->first();
 
-        // 2. Complétude documentaire (SQL DISTINCT, pas d'hydratation Eloquent).
-        $dossiersComplets = DocumentCatalog::countCompleteDossiers();
-        $documentsManquants = DocumentCatalog::countDossiersWithoutDocuments();
+        $dossiersComplets = 0;
+        $documentsManquants = 0;
+        try {
+            $dossiersComplets = DocumentCatalog::countCompleteDossiers();
+            $documentsManquants = DocumentCatalog::countDossiersWithoutDocuments();
+        } catch (\Throwable $e) {
+            Log::warning('Dashboard document stats skipped: '.$e->getMessage());
+        }
 
         // 3. Stats Invoices et Paiements
         $invoiceStats = DB::table('invoices')

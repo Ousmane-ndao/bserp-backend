@@ -48,18 +48,12 @@ class PaymentController extends Controller
         $allowOverpayment = (bool) ($data['allow_overpayment'] ?? false);
 
         $dossierId = isset($data['dossier_id']) ? (int) $data['dossier_id'] : null;
-        if (! $dossierId) {
-            $dossierId = $client->dossiers()->orderBy('id')->value('id');
+        if ($dossierId) {
+            $dossier = Dossier::query()->findOrFail($dossierId);
+            $this->paymentService->assertDossierBelongsToClient($dossier, $client);
+        } else {
+            $dossier = $this->paymentService->ensureDossierForClient($client);
         }
-
-        if (! $dossierId) {
-            throw ValidationException::withMessages([
-                'dossier_id' => ['Aucun dossier trouvé pour ce client.'],
-            ]);
-        }
-
-        $dossier = Dossier::query()->findOrFail($dossierId);
-        $this->paymentService->assertDossierBelongsToClient($dossier, $client);
 
         $payment = $this->paymentService->createPaymentAtomic([
             'dossier_id' => $dossier->id,

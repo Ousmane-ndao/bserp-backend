@@ -15,7 +15,7 @@
         .title { font-size: 40px; font-weight: 700; letter-spacing: .2px; margin: 0; color: #111827; line-height: 1; }
         .meta { color: #6b7280; margin: 5px 0 0 0; font-size: 10.7px; }
         .strong { font-weight: 700; }
-        .logo { width: 104px; height: auto; margin-top: 6px; }
+        .logo { height: 56px; width: auto; max-width: 260px; margin-top: 0; }
         .mt-32 { margin-top: 38px; }
         .mt-10 { margin-top: 10px; }
         .party-left { float: left; width: 55%; }
@@ -47,24 +47,8 @@
 </head>
 <body>
     @php
-        $logoCandidates = [
-            public_path('brand-bs-consulting-dark.png'),
-            public_path('brand-bs-consulting.png'),
-            public_path('logo-bs-consulting.png'),
-        ];
-        $logoPath = null;
-        foreach ($logoCandidates as $candidate) {
-            if (file_exists($candidate)) {
-                $logoPath = $candidate;
-                break;
-            }
-        }
-        $logoDataUri = null;
-        if ($logoPath !== null) {
-            $logoExt = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
-            $logoMime = $logoExt === 'jpg' || $logoExt === 'jpeg' ? 'image/jpeg' : 'image/png';
-            $logoDataUri = 'data:'.$logoMime.';base64,'.base64_encode((string) file_get_contents($logoPath));
-        }
+        $brand = \App\Support\PdfDocument::brand($company ?? null);
+        $logoDataUri = $brand['logo'];
         $clientName = trim(($invoice->client?->prenom ?? '').' '.($invoice->client?->nom ?? ''));
         $invoiceDate = $invoice->date_emission?->format('d.m.Y') ?? now()->format('d.m.Y');
         $invoiceDateTime = $invoice->date_emission?->setTimeFrom($invoice->created_at ?? now())->format('d.m.Y H:i') ?? now()->format('d.m.Y H:i');
@@ -78,7 +62,7 @@
         $destination = $invoice->client?->destination?->name ?? 'Européenne (France)';
         $clientCity = $invoice->client?->etablissement ?? 'Sangalkam';
         $clientLocation = $invoice->client?->destination?->name ?? 'RUFISQUE';
-        $receiptCompanyName = $company?->company_name ?? 'BS CONSULTING voyage';
+        $receiptCompanyName = $brand['name'];
         $receiptManagerName = 'Mme BA (NGA BINTA MBAYE)';
         $receiptAddressLine1 = 'N108 Cité Emetteur Keur Massar';
         $receiptAddressLine2 = 'Villa N° 08';
@@ -96,8 +80,9 @@
 
     <div class="top-logo-wrap">
         @if($logoDataUri)
-            <img src="{{ $logoDataUri }}" alt="Logo BS Consulting" class="logo"/>
+            <img src="{{ $logoDataUri }}" alt="{{ $receiptCompanyName }}" class="logo"/>
         @endif
+        <div style="font-size:11px;font-weight:700;color:#0b4f8a;margin-top:4px;">{{ $receiptCompanyName }}</div>
     </div>
 
     <div class="row mt-10">
@@ -181,8 +166,8 @@
         Le service après-vente prévoit le remboursement garanti à 50% après dossier infructueux.
     </div>
     <div class="company-footer">
-        <strong>{{ $company?->company_name ?? 'BS CONSULTING voyage' }}</strong><br/>
-        {{ $company?->address ?? 'N108 Cité Emetteur Keur Massar' }}<br/>
+        <strong>{{ $brand['name'] }}</strong><br/>
+        {{ $brand['location'] ?? ($company?->address ?? 'N108 Cité Emetteur Keur Massar') }}<br/>
         Villa N° 08 28557 DAKAR<br/>
         Numéro de SIRET: 010736976 - Numéro de TVA: 678464
     </div>

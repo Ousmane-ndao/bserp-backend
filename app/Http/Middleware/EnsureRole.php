@@ -13,6 +13,7 @@ class EnsureRole
     public function handle(Request $request, Closure $next, string ...$allowed): Response
     {
         $user = $request->user();
+        $user?->loadMissing('employee.role');
         if (! $user || ! $user->employee || ! $user->employee->role) {
             return new JsonResponse(['message' => 'Accès refusé.'], 403);
         }

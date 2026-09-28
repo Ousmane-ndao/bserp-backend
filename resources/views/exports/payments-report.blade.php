@@ -1,39 +1,11 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>Rapport des paiements</title>
-    <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #111; }
-        h1 { font-size: 18px; margin-bottom: 4px; }
-        h2 { font-size: 14px; margin-top: 24px; margin-bottom: 8px; }
-        .muted { color: #555; font-size: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
-        th { background: #f3f4f6; font-weight: bold; }
-        .right { text-align: right; }
-        .filters { margin-top: 8px; margin-bottom: 16px; }
-    </style>
-</head>
-<body>
-    <h1>Rapport des paiements / acomptes</h1>
-    <p class="muted">{{ $company?->company_name ?? 'BS Consulting' }}</p>
-    <p class="muted">Généré le {{ $generatedAt }}</p>
-
-    <div class="filters">
-        <p class="muted">
-            Filtres :
-            @if(!empty($filters['destination_id'])) Destination #{{ $filters['destination_id'] }} @endif
-            @if(!empty($filters['client_id'])) | Client #{{ $filters['client_id'] }} @endif
-            @if(!empty($filters['dossier_id'])) | Dossier #{{ $filters['dossier_id'] }} @endif
-            @if(!empty($filters['date_from'])) | Du {{ \Carbon\Carbon::parse($filters['date_from'])->format('d/m/Y') }} @endif
-            @if(!empty($filters['date_to'])) | Au {{ \Carbon\Carbon::parse($filters['date_to'])->format('d/m/Y') }} @endif
-            @if(!empty($filters['statut'])) | Statut : {{ $filters['statut'] }} @endif
-        </p>
-    </div>
-
+<x-pdf.document
+    title="Rapport des paiements / acomptes"
+    :generated-at="$generatedAt"
+    :company="$company ?? null"
+    :filters="$filters ?? []"
+>
     <h2>Détail des acomptes</h2>
-    <table>
+    <table class="export">
         <thead>
             <tr>
                 <th>#</th>
@@ -62,14 +34,14 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9">Aucun paiement trouvé pour ces filtres.</td>
+                    <td colspan="9">Aucun paiement trouvé pour ces critères.</td>
                 </tr>
             @endforelse
         </tbody>
     </table>
 
     <h2>Synthèse par dossier</h2>
-    <table>
+    <table class="export">
         <thead>
             <tr>
                 <th>Dossier</th>
@@ -99,5 +71,4 @@
             @endforelse
         </tbody>
     </table>
-</body>
-</html>
+</x-pdf.document>

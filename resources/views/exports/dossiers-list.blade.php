@@ -1,28 +1,11 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="utf-8">
-    <title>Export dossiers BSERP</title>
-    <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 9px; color: #111; }
-        h1 { font-size: 14px; margin: 0 0 6px; }
-        .meta { font-size: 8px; color: #444; margin-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
-        th { background: #f0f4f8; font-weight: bold; }
-        tr:nth-child(even) { background: #fafafa; }
-    </style>
-</head>
-<body>
-    <h1>Liste des dossiers</h1>
-    @if($company)
-        <p class="meta">{{ $company->company_name ?? 'BSERP' }}</p>
-    @endif
-    <p class="meta">Généré le {{ $generatedAt }} — max. 500 lignes (export PDF)</p>
-    @if(!empty(array_filter($filtres ?? [])))
-        <p class="meta">Filtres : {{ json_encode($filtres, JSON_UNESCAPED_UNICODE) }}</p>
-    @endif
-    <table>
+<x-pdf.document
+    title="Liste des dossiers"
+    :generated-at="$generatedAt"
+    :company="$company ?? null"
+    :filters="$filtres ?? []"
+    :subtitle="'Export limité à 500 lignes'"
+>
+    <table class="export">
         <thead>
             <tr>
                 <th>Réf.</th>
@@ -35,7 +18,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($dossiers as $d)
+            @forelse($dossiers as $d)
                 @php $c = $d->client; @endphp
                 <tr>
                     <td>{{ $d->reference }}</td>
@@ -46,8 +29,11 @@
                     <td>{{ $d->date_ouverture?->format('d/m/Y') }}</td>
                     <td>{{ $d->documents_count }}</td>
                 </tr>
-            @endforeach
+            @empty
+                <tr>
+                    <td colspan="7">Aucun dossier à exporter.</td>
+                </tr>
+            @endforelse
         </tbody>
     </table>
-</body>
-</html>
+</x-pdf.document>

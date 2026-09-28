@@ -155,6 +155,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'pdf']);
         Route::get('/invoices/{invoice}/share-links', [InvoiceController::class, 'shareLinks']);
+        Route::get('/invoices/{invoice}/delivery', [InvoiceController::class, 'deliveryPreview']);
+        Route::post('/invoices/{invoice}/delivery', [InvoiceController::class, 'deliver']);
         Route::post('/invoices/{invoice}/send-email', [InvoiceController::class, 'sendEmail']);
         Route::apiResource('invoices', InvoiceController::class);
         Route::apiResource('expenses', ExpenseController::class);

@@ -8,15 +8,13 @@ use App\Http\Requests\UpdateInvoiceRequest;
 use App\Http\Resources\InvoiceResource;
 use App\Models\CompanySetting;
 use App\Models\Invoice;
+use App\Services\InvoiceDeliveryService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
-use Throwable;
 
 class InvoiceController extends Controller
 {
@@ -51,11 +49,9 @@ class InvoiceController extends Controller
         ]);
 
         $invoice->load('client.destination');
-        $delivery = $this->autoDeliverInvoice($invoice);
 
         return response()->json([
             'data' => (new InvoiceResource($invoice))->toArray($request),
-            'delivery' => $delivery,
         ], 201);
     }
 
@@ -125,107 +121,53 @@ class InvoiceController extends Controller
 
     public function shareLinks(Invoice $invoice): JsonResponse
     {
-        $invoice->loadMissing('client');
-        $client = $invoice->client;
+        $preview = app(InvoiceDeliveryService::class)->preview($invoice);
         $pdfUrl = URL::temporarySignedRoute('invoices.public-pdf', now()->addDays(7), ['invoice' => $invoice->id]);
-
-        $telephone = $client?->telephone ? preg_replace('/\D+/', '', (string) $client->telephone) : '';
-        $receiver = trim((string) ($client?->prenom.' '.$client?->nom));
-        $amount = number_format((float) $invoice->montant_ttc, 0, ',', ' ');
-        $invoiceDate = $invoice->date_emission?->format('d/m/Y') ?? now()->format('d/m/Y');
-        $message = "Bonjour {$receiver}, voici votre recu {$invoice->numero} du {$invoiceDate} pour {$amount} {$invoice->currency}. ";
-        $message .= "Vous pouvez le telecharger ici: {$pdfUrl}. Merci - BS Consulting.";
-        $whatsappUrl = $telephone !== '' ? 'https://wa.me/'.$telephone.'?text='.rawurlencode($message) : null;
+        $message = $this->buildInvoiceWhatsappMessage($invoice->loadMissing('client'), $pdfUrl);
+        $whatsappId = $preview['whatsappId'] ?? null;
+        $whatsappUrl = $whatsappId ? 'https://wa.me/'.$whatsappId.'?text='.rawurlencode($message) : null;
 
         return response()->json([
             'data' => [
                 'pdfUrl' => $pdfUrl,
                 'whatsappUrl' => $whatsappUrl,
                 'canWhatsapp' => $whatsappUrl !== null,
-                'hasEmail' => ! empty($client?->email),
+                'hasEmail' => ! empty($preview['email']),
+                'preview' => $preview,
             ],
         ]);
     }
 
-    public function sendEmail(Invoice $invoice): JsonResponse
+    public function deliveryPreview(Invoice $invoice): JsonResponse
     {
-        $invoice->loadMissing('client');
-        $client = $invoice->client;
-        $email = trim((string) ($client?->email ?? ''));
-        if ($email === '') {
-            return response()->json(['message' => "Le client n'a pas d'adresse email."], 422);
-        }
-
-        $pdf = $this->buildInvoicePdf($invoice);
-        $filename = 'recu-'.$invoice->numero.'.pdf';
-        $receiver = trim((string) ($client?->prenom.' '.$client?->nom));
-        $mailBody = $this->buildInvoiceNotificationMessage($invoice, URL::temporarySignedRoute('invoices.public-pdf', now()->addDays(7), ['invoice' => $invoice->id]));
-
-        Mail::send([], [], function ($message) use ($email, $receiver, $invoice, $pdf, $filename, $mailBody) {
-            $message->to($email, $receiver !== '' ? $receiver : null)
-                ->subject('Recu '.$invoice->numero)
-                ->text($mailBody)
-                ->attachData($pdf->output(), $filename, ['mime' => 'application/pdf']);
-        });
-
-        return response()->json(['message' => 'Recu envoye par email.']);
+        return response()->json([
+            'data' => app(InvoiceDeliveryService::class)->preview($invoice),
+        ]);
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function autoDeliverInvoice(Invoice $invoice): array
+    public function deliver(Request $request, Invoice $invoice): JsonResponse
     {
-        $invoice->loadMissing('client');
-        $client = $invoice->client;
-        $email = trim((string) ($client?->email ?? ''));
-        $pdfUrl = URL::temporarySignedRoute('invoices.public-pdf', now()->addDays(7), ['invoice' => $invoice->id]);
+        $validated = $request->validate([
+            'mode' => ['required', 'string', 'in:email,whatsapp,both'],
+        ]);
 
-        if ($email !== '') {
-            try {
-                $pdf = $this->buildInvoicePdf($invoice);
-                $filename = 'recu-'.$invoice->numero.'.pdf';
-                $receiver = trim((string) ($client?->prenom.' '.$client?->nom));
-                $mailBody = $this->buildInvoiceNotificationMessage($invoice, $pdfUrl);
+        $payload = app(InvoiceDeliveryService::class)->deliver(
+            $invoice,
+            $validated['mode'],
+            $request->user()?->id,
+        );
 
-                Mail::send([], [], function ($message) use ($email, $receiver, $invoice, $pdf, $filename, $mailBody) {
-                    $message->to($email, $receiver !== '' ? $receiver : null)
-                        ->subject('Recu '.$invoice->numero)
-                        ->text($mailBody)
-                        ->attachData($pdf->output(), $filename, ['mime' => 'application/pdf']);
-                });
+        return response()->json(['data' => $payload]);
+    }
 
-                return [
-                    'channel' => 'email',
-                    'status' => 'sent',
-                    'message' => "Facture envoyée automatiquement par email à {$email}.",
-                    'pdfUrl' => $pdfUrl,
-                    'whatsappUrl' => null,
-                ];
-            } catch (Throwable $exception) {
-                Log::error('Invoice auto email failed', [
-                    'invoice_id' => $invoice->id,
-                    'email' => $email,
-                    'error' => $exception->getMessage(),
-                ]);
-
-                return [
-                    'channel' => 'email',
-                    'status' => 'missing_contact',
-                    'message' => "Échec de l'envoi email vers {$email}. Vérifiez la configuration de messagerie.",
-                    'pdfUrl' => $pdfUrl,
-                    'whatsappUrl' => null,
-                ];
-            }
+    public function sendEmail(Invoice $invoice): JsonResponse
+    {
+        $result = app(InvoiceDeliveryService::class)->sendEmail($invoice, request()->user()?->id);
+        if (! ($result['ok'] ?? false)) {
+            return response()->json(['message' => $result['errorMessage'] ?? $result['label'] ?? 'Envoi e-mail impossible.'], 422);
         }
 
-        return [
-            'channel' => 'none',
-            'status' => 'missing_contact',
-            'message' => "Aucun email n'est enregistré pour ce client. Veuillez renseigner l'email avant d'envoyer la facture.",
-            'pdfUrl' => $pdfUrl,
-            'whatsappUrl' => null,
-        ];
+        return response()->json(['message' => $result['label'] ?? 'Facture envoyée par e-mail.']);
     }
 
     private function buildInvoiceWhatsappMessage(Invoice $invoice, string $pdfUrl): string
@@ -236,14 +178,6 @@ class InvoiceController extends Controller
 
         return "Bonjour {$receiver}, voici votre recu {$invoice->numero} du {$invoiceDate} pour {$amount} {$invoice->currency}. "
             ."Vous pouvez le telecharger ici: {$pdfUrl}. Merci - BS Consulting.";
-    }
-
-    private function buildInvoiceNotificationMessage(Invoice $invoice, string $pdfUrl): string
-    {
-        return "Bonjour,\n\n"
-            ."Veuillez trouver ci-joint votre reçu {$invoice->numero}.\n"
-            ."Lien de téléchargement: {$pdfUrl}\n\n"
-            ."Cordialement,\nBS Consulting";
     }
 
     private function buildInvoicePdf(Invoice $invoice): \Barryvdh\DomPDF\PDF

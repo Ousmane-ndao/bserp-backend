@@ -179,7 +179,9 @@ class GenerateDossiersExportJob implements ShouldQueue
             'company' => $company,
             'dossiers' => $dossiers,
             'generatedAt' => now()->locale('fr')->isoFormat('LLL'),
-            'filtres' => $request->all(),
+            'filtres' => $request->only([
+                'search', 'statut', 'destination_group', 'date_ouverture_from', 'date_ouverture_to', 'sort_by', 'sort_dir',
+            ]),
         ])->setPaper('a4', 'landscape');
 
         $path = 'exports/dossiers/dossiers-'.now()->format('Y-m-d-His').'-'.$this->exportId.'.pdf';

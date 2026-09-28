@@ -34,7 +34,58 @@ class PaymentService
 
     public function getDossierMontantTotal(Dossier $dossier): float
     {
-        return (float) ($dossier->montant_total ?? self::DEFAULT_MONTANT_TOTAL);
+        $stored = (float) ($dossier->montant_total ?? 0);
+        if ($stored > 0) {
+            return $stored;
+        }
+
+        $dossier->loadMissing('client.destination');
+        $fromDestination = (float) ($dossier->client?->destination?->montant_total ?? 0);
+
+        return $fromDestination > 0 ? $fromDestination : self::DEFAULT_MONTANT_TOTAL;
+    }
+
+    public function ensureDossierForClient(Client $client): Dossier
+    {
+        $client->loadMissing('destination');
+        $dossier = $client->dossiers()->orderBy('id')->first();
+        if ($dossier) {
+            if ((float) $dossier->montant_total <= 0) {
+                $this->initializeDossierAmounts($dossier);
+                $dossier->refresh();
+            }
+
+            return $dossier;
+        }
+
+        $year = date('Y');
+        $last = Dossier::query()
+            ->where('reference', 'like', "D-{$year}-%")
+            ->orderByDesc('id')
+            ->first();
+        $seq = 1;
+        if ($last && preg_match('/D-\d{4}-(\d+)/', $last->reference, $matches)) {
+            $seq = ((int) ($matches[1] ?? 0)) + 1;
+        }
+        $destination = $client->destination;
+        $montantTotal = $destination?->frais_accompagnement !== null
+            ? (float) $destination->frais_accompagnement * 1.10
+            : (float) ($destination?->montant_total ?? self::DEFAULT_MONTANT_TOTAL);
+        if ($montantTotal <= 0) {
+            $montantTotal = self::DEFAULT_MONTANT_TOTAL;
+        }
+
+        $dossier = Dossier::query()->create([
+            'client_id' => $client->id,
+            'reference' => sprintf('D-%s-%03d', $year, $seq),
+            'statut' => 'En cours',
+            'date_ouverture' => $client->date_ouverture?->toDateString() ?? now()->toDateString(),
+            'montant_total' => $montantTotal,
+            'solde_restant' => $montantTotal,
+        ]);
+        $this->initializeDossierAmounts($dossier, $montantTotal);
+
+        return $dossier->fresh() ?? $dossier;
     }
 
     public function getDossierTotalPaye(Dossier $dossier, ?Payment $exclude = null): float
@@ -269,6 +320,10 @@ class PaymentService
     {
         return DB::transaction(function () use ($data, $userId): Payment {
             $dossier = Dossier::query()->lockForUpdate()->findOrFail($data['dossier_id']);
+            if ((float) $dossier->montant_total <= 0) {
+                $this->initializeDossierAmounts($dossier);
+                $dossier->refresh();
+            }
             $montant = (float) $data['montant'];
             $allowOverpayment = (bool) ($data['allow_overpayment'] ?? false);
 

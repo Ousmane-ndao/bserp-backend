@@ -1,28 +1,11 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="utf-8">
-    <title>Export clients BSERP</title>
-    <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 9px; color: #111; }
-        h1 { font-size: 14px; margin: 0 0 6px; }
-        .meta { font-size: 8px; color: #444; margin-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
-        th { background: #f0f4f8; font-weight: bold; }
-        tr:nth-child(even) { background: #fafafa; }
-    </style>
-</head>
-<body>
-    <h1>Liste des clients</h1>
-    @if($company)
-        <p class="meta">{{ $company->company_name ?? 'BSERP' }}</p>
-    @endif
-    <p class="meta">Généré le {{ $generatedAt }} — {{ $clients->count() }} client(s)</p>
-    @if(!empty(array_filter($filters ?? [])))
-        <p class="meta">Filtres appliqués : {{ json_encode($filters, JSON_UNESCAPED_UNICODE) }}</p>
-    @endif
-    <table>
+<x-pdf.document
+    title="Liste des clients"
+    :generated-at="$generatedAt"
+    :company="$company ?? null"
+    :filters="$filters ?? []"
+    :subtitle="$clients->count().' client(s)'"
+>
+    <table class="export">
         <thead>
             <tr>
                 <th>Prénom</th>
@@ -54,5 +37,4 @@
             @endforelse
         </tbody>
     </table>
-</body>
-</html>
+</x-pdf.document>
