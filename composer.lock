@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "dd3668a431484c7df81d3cb9f517996b",
+    "content-hash": "be4310431e06d456987bffc2efaa2fe8",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -4389,6 +4389,44 @@
                 "source": "https://github.com/MyIntervals/PHP-CSS-Parser/tree/v9.4.0"
             },
             "time": "2026-06-18T15:10:53+00:00"
+        },
+        {
+            "name": "sadi/brevo-mailer",
+            "version": "v2.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/sadi-tanvir/brevo-mail-sender.git",
+                "reference": "3925959532ec51971ea38649f1a8e66b400c302e"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/sadi-tanvir/brevo-mail-sender/zipball/3925959532ec51971ea38649f1a8e66b400c302e",
+                "reference": "3925959532ec51971ea38649f1a8e66b400c302e",
+                "shasum": ""
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Sadi\\BrevoMailer\\EmailServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Sadi\\BrevoMailer\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "A simple Laravel package to send emails using Brevo API",
+            "support": {
+                "issues": "https://github.com/sadi-tanvir/brevo-mail-sender/issues",
+                "source": "https://github.com/sadi-tanvir/brevo-mail-sender/tree/v2.0.0"
+            },
+            "time": "2025-08-17T16:15:22+00:00"
         },
         {
             "name": "spatie/laravel-package-tools",

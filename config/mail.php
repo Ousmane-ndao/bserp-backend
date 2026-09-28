@@ -98,7 +98,10 @@ return [
         ],
 
     ],
-
+'brevo' => [
+    'transport' => 'brevo',
+    'api_key' => env('BREVO_API_KEY'),
+],
     /*
     |--------------------------------------------------------------------------
     | Global "From" Address
