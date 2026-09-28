@@ -62,14 +62,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         bcmath \
         gd \
         opcache \
-    && apt-get purge -y --auto-remove \
-        libpq-dev \
-        libonig-dev \
-        libzip-dev \
-        zlib1g-dev \
-        libpng-dev \
-        libjpeg62-turbo-dev \
-        libfreetype6-dev \
+    
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /usr/local/etc/php-fpm.d/zz-docker.conf \
     && rm -f /etc/nginx/sites-enabled/default \
