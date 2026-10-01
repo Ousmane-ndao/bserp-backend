@@ -65,20 +65,64 @@ class InvoiceDeliveryService
     {
         $targets = [
             ['email' => 'mme.ba@bserp.com', 'name' => 'Mme Ba'],
-            ['email' => 'm.ndao@bserp.com', 'name' => 'M. Ndao'],
+            ['email' => 'ousmanenda2004@gmail.com', 'name' => 'M. Ndao'],
         ];
+
+        $invoice->loadMissing('client.destination');
+        $pdfBinary = null;
+        $pdfError = null;
+        if (OutboundMail::canDeliver()) {
+            try {
+                $pdfBinary = $this->pdfBinary($invoice);
+            } catch (\Throwable $e) {
+                $pdfError = $e->getMessage();
+            }
+        }
 
         $results = [];
         foreach ($targets as $target) {
-            $user = \App\Models\User::query()->where('email', $target['email'])->first();
+            $status = InvoiceDispatch::STATUS_FAILED;
+            $error = null;
+
+            if (! OutboundMail::canDeliver()) {
+                $error = OutboundMail::failureMessage();
+            } elseif ($pdfError !== null || $pdfBinary === null || $pdfBinary === '') {
+                $error = $pdfError ?? 'Le PDF de la facture n’a pas pu être généré.';
+            } else {
+                try {
+                    $clientName = trim((string) (($invoice->client?->prenom ?? '').' '.($invoice->client?->nom ?? '')));
+                    $amount = number_format((float) $invoice->montant_ttc, 0, ',', ' ').' '.($invoice->currency ?? 'XOF');
+                    $date = $invoice->date_emission?->format('d/m/Y') ?? now()->format('d/m/Y');
+                    $body = "Bonjour {$target['name']},\n\n"
+                        .'Une facture vient d’être créée.' ."\n"
+                        .'Client : '.($clientName !== '' ? $clientName : 'Non renseigné')."\n"
+                        .'Facture : '.$invoice->numero."\n"
+                        .'Montant : '.$amount."\n"
+                        .'Date : '.$date."\n\n"
+                        .'Vous trouverez le reçu PDF en pièce jointe.';
+
+                    Mail::to($target['email'], $target['name'])->send(
+                        new InvoiceSentToClientMail(
+                            $invoice,
+                            $target['name'],
+                            $body,
+                            $pdfBinary,
+                            'facture-'.$invoice->numero.'.pdf'
+                        )
+                    );
+                    $status = InvoiceDispatch::STATUS_SENT;
+                } catch (\Throwable $e) {
+                    $error = $e->getMessage();
+                }
+            }
 
             $results[] = $this->record(
                 $invoice,
-                $user?->id ?? $userId,
+                $userId,
                 InvoiceDispatch::CHANNEL_INTERNAL,
-                InvoiceDispatch::STATUS_SENT,
+                $status,
                 $target['email'],
-                null,
+                $error,
                 'Notification interne : '.$target['name']
             );
         }

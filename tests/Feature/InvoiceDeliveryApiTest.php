@@ -341,9 +341,10 @@ class InvoiceDeliveryApiTest extends TestCase
 
     public function test_invoice_creation_notifies_directrice_and_ndao(): void
     {
+        Mail::fake();
         $creator = $this->userForRole('conseillere_pedagogique');
         $this->employeeUserForRole('Directrice', 'Mme Ba', 'mme.ba@bserp.com');
-        $this->employeeUserForRole('Informaticien', 'M. Ndao', 'm.ndao@bserp.com');
+        $this->employeeUserForRole('Informaticien', 'M. Ndao', 'ousmanenda2004@gmail.com');
 
         $destination = Destination::query()->create([
             'name' => 'Dest Internal '.uniqid(),
@@ -384,8 +385,19 @@ class InvoiceDeliveryApiTest extends TestCase
             'invoice_id' => $invoice->id,
             'channel' => 'internal',
             'status' => 'sent',
-            'recipient' => 'm.ndao@bserp.com',
+            'recipient' => 'ousmanenda2004@gmail.com',
         ]);
+
+        Mail::assertSent(InvoiceSentToClientMail::class, function (InvoiceSentToClientMail $mail) use ($invoice) {
+            return $mail->invoice->is($invoice)
+                && $mail->hasTo('mme.ba@bserp.com')
+                && str_contains($mail->bodyText, 'reçu PDF');
+        });
+        Mail::assertSent(InvoiceSentToClientMail::class, function (InvoiceSentToClientMail $mail) use ($invoice) {
+            return $mail->invoice->is($invoice)
+                && $mail->hasTo('ousmanenda2004@gmail.com')
+                && str_contains($mail->bodyText, 'reçu PDF');
+        });
     }
 
     public function test_accounting_roles_can_list_invoice_audit_logs(): void
