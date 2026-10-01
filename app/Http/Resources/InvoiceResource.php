@@ -25,6 +25,9 @@ class InvoiceResource extends JsonResource
             'montantTtc' => (string) $this->montant_ttc,
             'currency' => $this->currency ?? config('currency.code'),
             'notes' => $this->notes,
+            'creatorUserId' => $this->creator_user_id ? (string) $this->creator_user_id : null,
+            'creatorName' => $this->creator?->employee?->name ?? $this->creator?->name,
+            'creatorRole' => $this->creator_role ?? $this->creator?->employee?->role?->name,
             'createdAt' => $this->created_at?->toIso8601String(),
         ];
     }

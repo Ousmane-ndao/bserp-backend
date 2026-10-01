@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AccountingController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClientController;
+use App\Http\Controllers\Api\CommercialActivityController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DestinationController;
 use App\Http\Controllers\Api\DocumentController;
@@ -56,6 +57,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard', DashboardController::class);
     Route::get('/dashboard/solde-restant', [DashboardController::class, 'soldeRestant'])
         ->middleware('role:directrice,responsable_admin,comptable,informaticien');
+
+    Route::middleware('role:directrice,responsable_admin,informaticien,commercial')->group(function () {
+        Route::get('/commercial-activities', [CommercialActivityController::class, 'index']);
+        Route::get('/commercial-activities/stats', [CommercialActivityController::class, 'stats']);
+        Route::post('/commercial-activities', [CommercialActivityController::class, 'store']);
+        Route::get('/commercial-activities/{commercialActivity}', [CommercialActivityController::class, 'show']);
+        Route::put('/commercial-activities/{commercialActivity}', [CommercialActivityController::class, 'update']);
+        Route::delete('/commercial-activities/{commercialActivity}', [CommercialActivityController::class, 'destroy']);
+    });
 
     // (debug route removed) typo-capture route cleaned up
 
@@ -131,17 +141,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/dossiers/{dossier}', [DossierController::class, 'destroy'])
         ->middleware('role:directrice,responsable_admin,informaticien,comptable');
 
-    Route::middleware('role:directrice,responsable_admin,comptable,informaticien')->group(function () {
+    Route::middleware('role:directrice,responsable_admin,conseillere_pedagogique,comptable,informaticien')->group(function () {
         Route::get('/clients/{client}/dossiers/{dossier}/payments', [DossierPaymentController::class, 'index']);
         Route::post('/clients/{client}/dossiers/{dossier}/payments', [DossierPaymentController::class, 'store']);
         Route::get('/clients/{client}/dossiers/{dossier}/payment-summary', [DossierPaymentController::class, 'summary']);
 
         Route::get('/payments', [PaymentController::class, 'index']);
+        Route::get('/payments/audit', [PaymentController::class, 'audit']);
         Route::post('/payments', [PaymentController::class, 'store']);
         Route::get('/payments/{payment}', [PaymentController::class, 'show']);
         Route::put('/payments/{payment}', [PaymentController::class, 'update']);
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy']);
 
+        Route::get('/invoices/audit', [InvoiceController::class, 'audit']);
         Route::get('/accounting/summary', [AccountingController::class, 'summary']);
 
         Route::get('/exports/payments', [ExportController::class, 'paymentsIndex']);

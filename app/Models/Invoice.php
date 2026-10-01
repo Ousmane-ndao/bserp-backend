@@ -18,6 +18,8 @@ class Invoice extends Model
 
     protected $fillable = [
         'client_id',
+        'creator_user_id',
+        'creator_role',
         'numero',
         'date_emission',
         'date_echeance',
@@ -75,9 +77,19 @@ class Invoice extends Model
         return $this->belongsTo(Client::class);
     }
 
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'creator_user_id');
+    }
+
     public function dispatches(): HasMany
     {
         return $this->hasMany(InvoiceDispatch::class);
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(InvoiceAuditLog::class);
     }
 
     public function isPendingPayment(): bool

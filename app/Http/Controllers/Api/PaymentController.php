@@ -9,6 +9,7 @@ use App\Http\Resources\PaymentResource;
 use App\Models\Client;
 use App\Models\Dossier;
 use App\Models\Payment;
+use App\Models\PaymentAuditLog;
 use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -69,6 +70,57 @@ class PaymentController extends Controller
             ->additional(['summary' => $this->paymentService->getDossierSummary($dossier->fresh())])
             ->response()
             ->setStatusCode(201);
+    }
+
+    public function audit(Request $request): JsonResponse
+    {
+        $perPage = min($request->integer('per_page', 20), 100);
+
+        $logs = PaymentAuditLog::query()
+            ->with(['payment', 'client', 'user.employee.role'])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        $data = $logs->getCollection()->map(function (PaymentAuditLog $log): array {
+            return [
+                'id' => (string) $log->id,
+                'payment_id' => $log->payment_id ? (string) $log->payment_id : null,
+                'client_id' => $log->client_id ? (string) $log->client_id : null,
+                'user_id' => $log->user_id ? (string) $log->user_id : null,
+                'action' => $log->action,
+                'payload' => $log->payload ?? [],
+                'created_at' => $log->created_at?->toIso8601String(),
+                'payment' => $log->payment ? [
+                    'id' => (string) $log->payment->id,
+                    'amount' => (string) $log->payment->montant,
+                    'dossier_id' => $log->payment->dossier_id ? (string) $log->payment->dossier_id : null,
+                    'date_paiement' => $log->payment->date_paiement?->format('Y-m-d'),
+                ] : null,
+                'user' => $log->user ? [
+                    'id' => (string) $log->user->id,
+                    'name' => $log->user->name,
+                    'email' => $log->user->email,
+                    'role' => $log->user->employee?->role?->name,
+                ] : null,
+            ];
+        })->all();
+
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'current_page' => $logs->currentPage(),
+                'last_page' => $logs->lastPage(),
+                'per_page' => $logs->perPage(),
+                'total' => $logs->total(),
+            ],
+            'links' => [
+                'first' => $logs->url(1),
+                'last' => $logs->url($logs->lastPage()),
+                'prev' => $logs->previousPageUrl(),
+                'next' => $logs->nextPageUrl(),
+            ],
+        ]);
     }
 
     public function show(Payment $payment): PaymentResource

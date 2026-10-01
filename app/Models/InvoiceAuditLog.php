@@ -5,27 +5,26 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class InvoiceDispatch extends Model
+class InvoiceAuditLog extends Model
 {
-    public const CHANNEL_EMAIL = 'email';
-
-    public const CHANNEL_WHATSAPP = 'whatsapp';
-
-    public const CHANNEL_INTERNAL = 'internal';
-
-    public const STATUS_SENT = 'sent';
-
-    public const STATUS_FAILED = 'failed';
+    public $timestamps = false;
 
     protected $fillable = [
         'invoice_id',
         'client_id',
         'user_id',
-        'channel',
-        'status',
-        'recipient',
-        'error_message',
+        'action',
+        'payload',
+        'created_at',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'payload' => 'array',
+            'created_at' => 'datetime',
+        ];
+    }
 
     public function invoice(): BelongsTo
     {

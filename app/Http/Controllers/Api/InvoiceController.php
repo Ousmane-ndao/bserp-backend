@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateInvoiceRequest;
 use App\Http\Resources\InvoiceResource;
 use App\Models\CompanySetting;
 use App\Models\Invoice;
+use App\Models\InvoiceAuditLog;
 use App\Services\InvoiceDeliveryService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +19,57 @@ use Symfony\Component\HttpFoundation\Response;
 
 class InvoiceController extends Controller
 {
+    public function audit(Request $request): JsonResponse
+    {
+        $perPage = min($request->integer('per_page', 20), 100);
+
+        $logs = InvoiceAuditLog::query()
+            ->with(['invoice', 'client', 'user.employee.role'])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        $data = $logs->getCollection()->map(function (InvoiceAuditLog $log): array {
+            return [
+                'id' => (string) $log->id,
+                'invoice_id' => $log->invoice_id ? (string) $log->invoice_id : null,
+                'client_id' => $log->client_id ? (string) $log->client_id : null,
+                'user_id' => $log->user_id ? (string) $log->user_id : null,
+                'action' => $log->action,
+                'payload' => $log->payload ?? [],
+                'created_at' => $log->created_at?->toIso8601String(),
+                'invoice' => $log->invoice ? [
+                    'id' => (string) $log->invoice->id,
+                    'numero' => $log->invoice->numero,
+                    'statut' => $log->invoice->statut,
+                    'montant_ttc' => (string) $log->invoice->montant_ttc,
+                ] : null,
+                'user' => $log->user ? [
+                    'id' => (string) $log->user->id,
+                    'name' => $log->user->name,
+                    'email' => $log->user->email,
+                    'role' => $log->user->employee?->role?->name,
+                ] : null,
+            ];
+        })->all();
+
+        return response()->json([
+            'data' => $data,
+            'meta' => [
+                'current_page' => $logs->currentPage(),
+                'last_page' => $logs->lastPage(),
+                'per_page' => $logs->perPage(),
+                'total' => $logs->total(),
+            ],
+            'links' => [
+                'first' => $logs->url(1),
+                'last' => $logs->url($logs->lastPage()),
+                'prev' => $logs->previousPageUrl(),
+                'next' => $logs->nextPageUrl(),
+            ],
+        ]);
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Invoice::query()->with('client');
@@ -37,8 +89,13 @@ class InvoiceController extends Controller
     public function store(StoreInvoiceRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $user = $request->user();
+        $roleName = $user?->employee?->role?->name ?? 'Utilisateur';
+
         $invoice = Invoice::query()->create([
             'client_id' => $data['client_id'],
+            'creator_user_id' => $user?->id,
+            'creator_role' => $roleName,
             'numero' => $data['numero'] ?? null,
             'date_emission' => $data['date_emission'],
             'date_echeance' => $data['date_echeance'] ?? null,
@@ -48,7 +105,9 @@ class InvoiceController extends Controller
             'notes' => $data['notes'] ?? null,
         ]);
 
-        $invoice->load('client.destination');
+        $this->logAudit($invoice, 'created', null, $this->snapshot($invoice), $user?->id);
+        $invoice->load(['client.destination', 'creator.employee.role']);
+        app(InvoiceDeliveryService::class)->notifyInternalTeam($invoice, $user?->id);
 
         return response()->json([
             'data' => (new InvoiceResource($invoice))->toArray($request),
@@ -63,6 +122,7 @@ class InvoiceController extends Controller
     public function update(UpdateInvoiceRequest $request, Invoice $invoice): JsonResponse
     {
         $data = $request->validated();
+        $before = $this->snapshot($invoice);
 
         if (array_key_exists('client_id', $data)) {
             $invoice->client_id = $data['client_id'];
@@ -90,13 +150,17 @@ class InvoiceController extends Controller
         }
 
         $invoice->save();
+        $this->logAudit($invoice, 'updated', $before, $this->snapshot($invoice), $request->user()?->id);
 
         return (new InvoiceResource($invoice->fresh()->load('client')))->response();
     }
 
     public function destroy(Invoice $invoice): JsonResponse
     {
+        $before = $this->snapshot($invoice);
+        $userId = request()->user()?->id;
         $invoice->delete();
+        $this->logAudit($invoice, 'deleted', $before, null, $userId);
 
         return response()->json(null, 204);
     }
@@ -178,6 +242,40 @@ class InvoiceController extends Controller
 
         return "Bonjour {$receiver}, voici votre recu {$invoice->numero} du {$invoiceDate} pour {$amount} {$invoice->currency}. "
             ."Vous pouvez le telecharger ici: {$pdfUrl}. Merci - BS Consulting.";
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function snapshot(Invoice $invoice): array
+    {
+        return [
+            'client_id' => $invoice->client_id,
+            'numero' => $invoice->numero,
+            'date_emission' => $invoice->date_emission?->format('Y-m-d'),
+            'date_echeance' => $invoice->date_echeance?->format('Y-m-d'),
+            'statut' => $invoice->statut,
+            'montant_ttc' => (string) $invoice->montant_ttc,
+            'currency' => $invoice->currency,
+            'notes' => $invoice->notes,
+            'creator_user_id' => $invoice->creator_user_id,
+            'creator_role' => $invoice->creator_role,
+        ];
+    }
+
+    private function logAudit(Invoice $invoice, string $action, ?array $old = null, ?array $new = null, ?int $userId = null): void
+    {
+        InvoiceAuditLog::query()->create([
+            'invoice_id' => $invoice->id,
+            'client_id' => $invoice->client_id,
+            'user_id' => $userId,
+            'action' => $action,
+            'payload' => [
+                'before' => $old,
+                'after' => $new,
+            ],
+            'created_at' => now(),
+        ]);
     }
 
     private function buildInvoicePdf(Invoice $invoice): \Barryvdh\DomPDF\PDF

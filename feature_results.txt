@@ -1,0 +1,71 @@
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\ClientDossierCreateApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90maccueil can create client[39m[90m                                           [39m [90m0.70s[39m  
+  [32;1m✓[39;22m[90m [39m[90maccueil can create dossier[39m[90m                                          [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcomptable can create client and read full profile[39m[90m                   [39m [90m0.13s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\ClientExportApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mauthenticated client pdf export includes all clients[39m[90m                [39m [90m1.21s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CommercialActivityApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcommercial can create and list own activity[39m[90m                         [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommercial cannot view other commercial activities[39m[90m                  [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdirectrice can view all activities[39m[90m                                  [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdashboard stats include breakdown by type and commercial[39m[90m            [39m [90m0.12s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CompanySettingsApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdirectrice can read and update company settings[39m[90m                     [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommercial cannot manage company settings[39m[90m                           [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\DocumentAccessApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdirectrice can list documents[39m[90m                                       [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommercial can access documents module[39m[90m                              [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\DossierApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcommercial can update dossier[39m[90m                                       [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90maccueil can update dossier[39m[90m                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommercial cannot delete dossier[39m[90m                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90minformaticien can delete dossier[39m[90m                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mguest cannot update dossier[39m[90m                                         [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdashboard counts complete dossiers from all required document types[39m[90m [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdossier list honors page and filters[39m[90m                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdossier list pages do not overlap[39m[90m                                   [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdossier list reaches page 25[39m[90m                                        [39m [90m0.44s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\DossierPaymentApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcan create sequential payments for dossier[39m[90m                          [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mblocks overpayment without flag[39m[90m                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mallows overpayment when flag is set[39m[90m                                 [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrejects payment when dossier does not belong to client[39m[90m              [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayment summary endpoint returns dossier totals[39m[90m                     [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdelete payment recalculates dossier balance[39m[90m                         [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayments export json returns filtered data[39m[90m                          [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\EmployeeAccessApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90memployee index exposes access permissions[39m[90m                           [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\ExampleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe application returns a successful response[39m[90m                       [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\InvoiceDeliveryApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpreview uses the invoice client contact[39m[90m                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90memail send uses client fiche and records history[39m[90m                    [39m [90m0.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90memail send fails when address missing[39m[90m                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwhatsapp fails when number not on whatsapp[39m[90m                          [39m [90m0.80s[39m  
+  [32;1m✓[39;22m[90m [39m[90mboth channels report separately[39m[90m                                     [39m [90m4.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequest cannot override recipient email[39m[90m                             [39m [90m1.81s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlog mailer is not recorded as sent[39m[90m                                  [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mboth reports email and unconfigured whatsapp separately[39m[90m             [39m [90m0.96s[39m  
+  [32;1m✓[39;22m[90m [39m[90mconseillere pedagogique can create invoice[39m[90m                          [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvoice is tracked with creator and role[39m[90m                            [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvoice creation notifies directrice and ndao[39m[90m                       [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90maccounting roles can list invoice audit logs[39m[90m                        [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommercial cannot access invoice audit logs[39m[90m                         [39m [90m0.15s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\PaymentAuditApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90maccounting roles can list payment audit logs[39m[90m                        [39m [90m0.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommercial cannot access payment audit logs[39m[90m                         [39m [90m0.24s[39m  
+
+  [90mTests:[39m    [32;1m45 passed[39;22m[90m (172 assertions)[39m
+  [90mDuration:[39m [39m14.91s[39m
+

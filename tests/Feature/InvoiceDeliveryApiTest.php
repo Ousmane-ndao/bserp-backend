@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Destination;
 use App\Models\Employee;
 use App\Models\Invoice;
+use App\Models\InvoiceAuditLog;
 use App\Models\InvoiceDispatch;
 use App\Models\Role;
 use App\Models\User;
@@ -39,6 +40,26 @@ class InvoiceDeliveryApiTest extends TestCase
             'password' => bcrypt('password'),
             'employee_id' => $employee->id,
         ])->save();
+
+        return $user->fresh(['employee.role']);
+    }
+
+    private function employeeUserForRole(string $roleName, string $name, string $email): User
+    {
+        $role = Role::query()->firstOrCreate(['name' => $roleName]);
+        $employee = Employee::query()->firstOrCreate(
+            ['email' => $email],
+            ['name' => $name, 'role_id' => $role->id, 'statut' => 'Actif']
+        );
+
+        $user = User::query()->firstOrCreate(
+            ['email' => $email],
+            [
+                'name' => $name,
+                'password' => bcrypt('password'),
+                'employee_id' => $employee->id,
+            ]
+        );
 
         return $user->fresh(['employee.role']);
     }
@@ -247,5 +268,185 @@ class InvoiceDeliveryApiTest extends TestCase
         Mail::assertSent(InvoiceSentToClientMail::class, function (InvoiceSentToClientMail $mail) {
             return $mail->hasTo('mixte@example.com') && count($mail->attachments()) === 1;
         });
+    }
+
+    public function test_conseillere_pedagogique_can_create_invoice(): void
+    {
+        $user = $this->userForRole('conseillere_pedagogique');
+        $destination = Destination::query()->create([
+            'name' => 'Dest CP '.uniqid(),
+            'region' => 'Afrique',
+            'type_compte' => 'SIMPLE',
+        ]);
+        $client = Client::query()->create([
+            'prenom' => 'Marie',
+            'nom' => 'Sarr',
+            'email' => 'marie.'.uniqid('', true).'@client.test',
+            'telephone' => '770001122',
+            'destination_id' => $destination->id,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/invoices', [
+            'client_id' => $client->id,
+            'date_emission' => now()->toDateString(),
+            'date_echeance' => now()->addDays(15)->toDateString(),
+            'statut' => Invoice::STATUT_ENVOYEE,
+            'montant_ttc' => 250000,
+            'currency' => 'XOF',
+            'notes' => 'Facture de test',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('invoices', [
+            'client_id' => $client->id,
+            'statut' => Invoice::STATUT_ENVOYEE,
+            'montant_ttc' => '250000.00',
+        ]);
+    }
+
+    public function test_invoice_is_tracked_with_creator_and_role(): void
+    {
+        $user = $this->userForRole('conseillere_pedagogique');
+        $destination = Destination::query()->create([
+            'name' => 'Dest Trace '.uniqid(),
+            'region' => 'Afrique',
+            'type_compte' => 'SIMPLE',
+        ]);
+        $client = Client::query()->create([
+            'prenom' => 'Ndeye',
+            'nom' => 'Fall',
+            'email' => 'ndeye.'.uniqid('', true).'@client.test',
+            'telephone' => '770011223',
+            'destination_id' => $destination->id,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/invoices', [
+            'client_id' => $client->id,
+            'date_emission' => now()->toDateString(),
+            'date_echeance' => now()->addDays(10)->toDateString(),
+            'statut' => Invoice::STATUT_ENVOYEE,
+            'montant_ttc' => 100000,
+            'currency' => 'XOF',
+        ])->assertCreated();
+
+        $invoice = Invoice::query()->latest('id')->first();
+
+        $this->assertNotNull($invoice);
+        $this->assertSame($user->id, $invoice->creator_user_id);
+        $this->assertSame('Conseillère pédagogique', $invoice->creator_role);
+    }
+
+    public function test_invoice_creation_notifies_directrice_and_ndao(): void
+    {
+        $creator = $this->userForRole('conseillere_pedagogique');
+        $this->employeeUserForRole('Directrice', 'Mme Ba', 'mme.ba@bserp.com');
+        $this->employeeUserForRole('Informaticien', 'M. Ndao', 'm.ndao@bserp.com');
+
+        $destination = Destination::query()->create([
+            'name' => 'Dest Internal '.uniqid(),
+            'region' => 'Afrique',
+            'type_compte' => 'SIMPLE',
+        ]);
+        $client = Client::query()->create([
+            'prenom' => 'Pape',
+            'nom' => 'Mbaye',
+            'email' => 'pape.'.uniqid('', true).'@client.test',
+            'telephone' => '770555999',
+            'destination_id' => $destination->id,
+        ]);
+
+        Sanctum::actingAs($creator);
+
+        $response = $this->postJson('/api/invoices', [
+            'client_id' => $client->id,
+            'date_emission' => now()->toDateString(),
+            'date_echeance' => now()->addDays(12)->toDateString(),
+            'statut' => Invoice::STATUT_ENVOYEE,
+            'montant_ttc' => 200000,
+            'currency' => 'XOF',
+        ]);
+
+        $response->assertCreated();
+
+        $invoice = Invoice::query()->latest('id')->first();
+
+        $this->assertNotNull($invoice);
+        $this->assertDatabaseHas('invoice_dispatches', [
+            'invoice_id' => $invoice->id,
+            'channel' => 'internal',
+            'status' => 'sent',
+            'recipient' => 'mme.ba@bserp.com',
+        ]);
+        $this->assertDatabaseHas('invoice_dispatches', [
+            'invoice_id' => $invoice->id,
+            'channel' => 'internal',
+            'status' => 'sent',
+            'recipient' => 'm.ndao@bserp.com',
+        ]);
+    }
+
+    public function test_accounting_roles_can_list_invoice_audit_logs(): void
+    {
+        $destination = Destination::query()->create([
+            'name' => 'Dest Invoice Audit '.uniqid(),
+            'region' => 'Afrique',
+            'type_compte' => 'SIMPLE',
+        ]);
+        $client = Client::query()->create([
+            'prenom' => 'Invoice',
+            'nom' => 'Audit',
+            'email' => 'invoice.audit.'.uniqid('', true).'@client.test',
+            'telephone' => '770123456',
+            'destination_id' => $destination->id,
+        ]);
+        $invoice = Invoice::query()->create([
+            'client_id' => $client->id,
+            'date_emission' => now()->toDateString(),
+            'statut' => Invoice::STATUT_ENVOYEE,
+            'montant_ttc' => 150000,
+            'currency' => 'XOF',
+        ]);
+        InvoiceAuditLog::query()->create([
+            'invoice_id' => $invoice->id,
+            'client_id' => $client->id,
+            'user_id' => null,
+            'action' => 'created',
+            'payload' => [
+                'before' => null,
+                'after' => ['montant_ttc' => '150000.00'],
+            ],
+            'created_at' => now(),
+        ]);
+
+        $user = $this->userForRole('comptable');
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/invoices/audit');
+
+        $response->assertOk();
+        $this->assertGreaterThanOrEqual(1, count($response->json('data')));
+        $this->assertSame('created', $response->json('data.0.action'));
+        $this->assertSame((string) $invoice->id, (string) $response->json('data.0.invoice_id'));
+    }
+
+    public function test_commercial_cannot_access_invoice_audit_logs(): void
+    {
+        $invoice = $this->makeInvoice();
+        InvoiceAuditLog::query()->create([
+            'invoice_id' => $invoice->id,
+            'client_id' => $invoice->client_id,
+            'user_id' => null,
+            'action' => 'created',
+            'payload' => ['before' => null, 'after' => ['id' => $invoice->id]],
+            'created_at' => now(),
+        ]);
+
+        $user = $this->userForRole('commercial');
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/invoices/audit')->assertForbidden();
     }
 }

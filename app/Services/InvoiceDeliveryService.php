@@ -58,6 +58,34 @@ class InvoiceDeliveryService
     /**
      * @return array{results: list<array<string, mixed>>, history: list<array<string, mixed>>}
      */
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function notifyInternalTeam(Invoice $invoice, ?int $userId = null): array
+    {
+        $targets = [
+            ['email' => 'mme.ba@bserp.com', 'name' => 'Mme Ba'],
+            ['email' => 'm.ndao@bserp.com', 'name' => 'M. Ndao'],
+        ];
+
+        $results = [];
+        foreach ($targets as $target) {
+            $user = \App\Models\User::query()->where('email', $target['email'])->first();
+
+            $results[] = $this->record(
+                $invoice,
+                $user?->id ?? $userId,
+                InvoiceDispatch::CHANNEL_INTERNAL,
+                InvoiceDispatch::STATUS_SENT,
+                $target['email'],
+                null,
+                'Notification interne : '.$target['name']
+            );
+        }
+
+        return $results;
+    }
+
     public function deliver(Invoice $invoice, string $mode, ?int $userId): array
     {
         $invoice->loadMissing('client.destination');
@@ -258,7 +286,13 @@ class InvoiceDeliveryService
 
     private function resultLabel(string $channel, bool $ok, ?string $error): string
     {
-        $name = $channel === InvoiceDispatch::CHANNEL_EMAIL ? 'E-mail' : 'WhatsApp';
+        $name = match ($channel) {
+            InvoiceDispatch::CHANNEL_EMAIL => 'E-mail',
+            InvoiceDispatch::CHANNEL_WHATSAPP => 'WhatsApp',
+            InvoiceDispatch::CHANNEL_INTERNAL => 'Notification interne',
+            default => ucfirst($channel),
+        };
+
         if ($ok) {
             return $name.' : Envoyé';
         }

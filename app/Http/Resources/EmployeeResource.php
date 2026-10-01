@@ -15,13 +15,17 @@ class EmployeeResource extends JsonResource
     {
         $user = $this->whenLoaded('user');
         $role = $this->whenLoaded('role');
+        $roleName = $role ? $role->name : ($this->role ? $this->role->name : null);
+        $permissions = RoleMapper::permissionsForRole($roleName);
 
         return [
             'id' => (string) $this->id,
             'nom' => $this->name,
             'email' => $this->email,
             'telephone' => $this->telephone,
-            'role' => RoleMapper::toFrontendKey($role ? $role->name : null),
+            'role' => RoleMapper::toFrontendKey($roleName),
+            'permissions' => $permissions,
+            'access' => $permissions,
             'statut' => $this->statut,
         ];
     }
