@@ -343,7 +343,7 @@ class InvoiceDeliveryApiTest extends TestCase
     {
         Mail::fake();
         $creator = $this->userForRole('conseillere_pedagogique');
-        $this->employeeUserForRole('Directrice', 'Mme Ba', 'mme.ba@bserp.com');
+        $this->employeeUserForRole('Directrice', 'DG', 'madamebacci@gmail.com');
         $this->employeeUserForRole('Informaticien', 'M. Ndao', 'ousmanenda2004@gmail.com');
 
         $destination = Destination::query()->create([
@@ -379,7 +379,7 @@ class InvoiceDeliveryApiTest extends TestCase
             'invoice_id' => $invoice->id,
             'channel' => 'internal',
             'status' => 'sent',
-            'recipient' => 'mme.ba@bserp.com',
+            'recipient' => 'madamebacci@gmail.com',
         ]);
         $this->assertDatabaseHas('invoice_dispatches', [
             'invoice_id' => $invoice->id,
@@ -390,7 +390,7 @@ class InvoiceDeliveryApiTest extends TestCase
 
         Mail::assertSent(InvoiceSentToClientMail::class, function (InvoiceSentToClientMail $mail) use ($invoice) {
             return $mail->invoice->is($invoice)
-                && $mail->hasTo('mme.ba@bserp.com')
+                && $mail->hasTo('madamebacci@gmail.com')
                 && str_contains($mail->bodyText, 'reçu PDF');
         });
         Mail::assertSent(InvoiceSentToClientMail::class, function (InvoiceSentToClientMail $mail) use ($invoice) {

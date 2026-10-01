@@ -64,7 +64,7 @@ class InvoiceDeliveryService
     public function notifyInternalTeam(Invoice $invoice, ?int $userId = null): array
     {
         $targets = [
-            ['email' => 'mme.ba@bserp.com', 'name' => 'Mme Ba'],
+            ['email' => 'madamebacci@gmail.com', 'name' => 'DG'],
             ['email' => 'ousmanenda2004@gmail.com', 'name' => 'M. Ndao'],
         ];
 
