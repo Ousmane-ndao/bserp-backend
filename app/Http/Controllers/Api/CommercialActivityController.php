@@ -121,7 +121,16 @@ class CommercialActivityController extends Controller
         }
 
         $byCommercial = (clone $query)
-            ->select('commercial_user_id', DB::raw('COUNT(*) as total'))
+            ->select(
+                'commercial_user_id',
+                DB::raw('COUNT(*) as total'),
+                DB::raw("SUM(CASE WHEN type = 'Appel' THEN 1 ELSE 0 END) as appels"),
+                DB::raw("SUM(CASE WHEN type = 'Visite' THEN 1 ELSE 0 END) as visites"),
+                DB::raw("SUM(CASE WHEN type = 'Ouverture de dossier' THEN 1 ELSE 0 END) as ouvertures"),
+                DB::raw("SUM(CASE WHEN type = 'Rendez-vous' THEN 1 ELSE 0 END) as rendez_vous"),
+                DB::raw("SUM(CASE WHEN type = 'Prospect suivi' THEN 1 ELSE 0 END) as prospects_suivis"),
+                DB::raw("SUM(CASE WHEN type = 'Client suivi' THEN 1 ELSE 0 END) as clients_suivis"),
+            )
             ->groupBy('commercial_user_id')
             ->orderByDesc('total')
             ->get()
@@ -132,6 +141,12 @@ class CommercialActivityController extends Controller
                     'id' => (int) $row->commercial_user_id,
                     'name' => $user?->employee?->name ?? $user?->name ?? 'Commercial',
                     'total' => (int) $row->total,
+                    'appels' => (int) $row->appels,
+                    'visites' => (int) $row->visites,
+                    'ouvertures' => (int) $row->ouvertures,
+                    'rendez_vous' => (int) $row->rendez_vous,
+                    'prospects_suivis' => (int) $row->prospects_suivis,
+                    'clients_suivis' => (int) $row->clients_suivis,
                 ];
             })
             ->values()

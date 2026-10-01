@@ -228,4 +228,71 @@ class CommercialActivityApiTest extends TestCase
         $this->assertCount(2, $response->json('data.by_commercial'));
         $this->assertSame(3, array_sum(array_column($response->json('data.by_commercial'), 'total')));
     }
+
+    public function test_informaticien_and_directrice_see_daily_totals_for_all_commercials(): void
+    {
+        $commercialA = $this->userForRole('commercial');
+        $commercialB = $this->userForRole('commercial');
+        $informaticien = $this->userForRole('informaticien');
+        $responsableAdmin = $this->userForRole('responsable_admin');
+        $directrice = $this->userForRole('directrice');
+
+        Sanctum::actingAs($commercialA);
+        $this->postJson('/api/commercial-activities', [
+            'type' => 'Appel',
+            'date' => '2026-10-01',
+            'client_name' => 'Contact A',
+        ])->assertCreated();
+        $this->postJson('/api/commercial-activities', [
+            'type' => 'Visite',
+            'date' => '2026-10-01',
+            'client_name' => 'Contact B',
+        ])->assertCreated();
+
+        Sanctum::actingAs($commercialB);
+        $this->postJson('/api/commercial-activities', [
+            'type' => 'Rendez-vous',
+            'date' => '2026-10-01',
+            'client_name' => 'Contact C',
+        ])->assertCreated();
+        $this->postJson('/api/commercial-activities', [
+            'type' => 'Appel',
+            'date' => '2026-10-02',
+            'client_name' => 'Contact D',
+        ])->assertCreated();
+
+        $dateFilter = '?date_from=2026-10-01&date_to=2026-10-01';
+
+        Sanctum::actingAs($informaticien);
+        $stats = $this->getJson('/api/commercial-activities/stats'.$dateFilter)
+            ->assertOk()
+            ->assertJsonPath('data.total_activities', 3)
+            ->assertJsonPath('data.appels', 1)
+            ->assertJsonPath('data.visites', 1)
+            ->assertJsonPath('data.rendez_vous', 1);
+        $byCommercial = collect($stats->json('data.by_commercial'))->keyBy('id');
+        $this->assertSame(2, $byCommercial->get($commercialA->id)['total']);
+        $this->assertSame(1, $byCommercial->get($commercialA->id)['appels']);
+        $this->assertSame(1, $byCommercial->get($commercialA->id)['visites']);
+        $this->assertSame(1, $byCommercial->get($commercialB->id)['rendez_vous']);
+        $this->assertCount(3, $this->getJson('/api/commercial-activities'.$dateFilter)->assertOk()->json('data'));
+
+        Sanctum::actingAs($directrice);
+        $this->getJson('/api/commercial-activities/stats'.$dateFilter)
+            ->assertOk()
+            ->assertJsonPath('data.total_activities', 3);
+        $this->assertCount(3, $this->getJson('/api/commercial-activities'.$dateFilter)->assertOk()->json('data'));
+
+        Sanctum::actingAs($responsableAdmin);
+        $this->getJson('/api/commercial-activities/stats'.$dateFilter)
+            ->assertOk()
+            ->assertJsonPath('data.total_activities', 3);
+        $this->assertCount(3, $this->getJson('/api/commercial-activities'.$dateFilter)->assertOk()->json('data'));
+
+        Sanctum::actingAs($commercialA);
+        $this->getJson('/api/commercial-activities/stats'.$dateFilter)
+            ->assertOk()
+            ->assertJsonPath('data.total_activities', 2);
+        $this->assertCount(2, $this->getJson('/api/commercial-activities'.$dateFilter)->assertOk()->json('data'));
+    }
 }
