@@ -63,6 +63,54 @@ class CommercialActivityApiTest extends TestCase
         $this->assertCount(1, $list->json('data'));
     }
 
+    public function test_commercial_can_update_and_delete_own_activity(): void
+    {
+        $user = $this->userForRole('commercial');
+        Sanctum::actingAs($user);
+
+        $created = $this->postJson('/api/commercial-activities', [
+            'type' => 'Appel',
+            'date' => '2026-10-01',
+            'client_name' => 'Client initial',
+        ])->assertCreated();
+        $activityId = $created->json('data.id');
+
+        $this->putJson('/api/commercial-activities/'.$activityId, [
+            'type' => 'Visite',
+            'client_name' => 'Client corrigé',
+        ])->assertOk()->assertJsonPath('data.type', 'Visite')
+            ->assertJsonPath('data.client_name', 'Client corrigé');
+
+        $this->deleteJson('/api/commercial-activities/'.$activityId)->assertOk();
+        $this->assertDatabaseMissing('commercial_activities', ['id' => $activityId]);
+    }
+
+    public function test_commercial_cannot_update_or_delete_another_commercial_activity(): void
+    {
+        $owner = $this->userForRole('commercial');
+        $otherCommercial = $this->userForRole('commercial');
+
+        Sanctum::actingAs($owner);
+        $created = $this->postJson('/api/commercial-activities', [
+            'type' => 'Appel',
+            'date' => '2026-10-01',
+            'client_name' => 'Client confidentiel',
+        ])->assertCreated();
+        $activityId = $created->json('data.id');
+
+        Sanctum::actingAs($otherCommercial);
+        $this->putJson('/api/commercial-activities/'.$activityId, [
+            'type' => 'Visite',
+        ])->assertForbidden();
+        $this->deleteJson('/api/commercial-activities/'.$activityId)->assertForbidden();
+
+        $this->assertDatabaseHas('commercial_activities', [
+            'id' => $activityId,
+            'commercial_user_id' => $owner->id,
+            'type' => 'Appel',
+        ]);
+    }
+
     public function test_commercial_cannot_view_other_commercial_activities(): void
     {
         $userA = $this->userForRole('commercial');
